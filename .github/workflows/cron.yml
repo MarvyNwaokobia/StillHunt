@@ -1,0 +1,62 @@
+name: cron
+
+# Two sweeps, both read-mostly. The payout reconcile that used to live here is
+# gone: it existed to re-attempt transfers whose on-chain send never landed, and
+# rewards accrue as database rows now, so there is no half-finished payout to
+# retry. Deleting the job was the point of that change, not an oversight.
+#
+# Requires two repository secrets (Settings → Secrets and variables → Actions):
+#   API_URL            the live API, e.g. https://stillhunt-api-production.up.railway.app
+#   DECAY_CRON_SECRET  same value as the API's DECAY_CRON_SECRET variable
+on:
+  schedule:
+    - cron: '0 */3 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  decay:
+    name: decay sweep
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger decay sweep
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          DECAY_CRON_SECRET: ${{ secrets.DECAY_CRON_SECRET }}
+        run: |
+          if [ -z "$API_URL" ] || [ -z "$DECAY_CRON_SECRET" ]; then
+            echo "API_URL or DECAY_CRON_SECRET not set — skipping."; exit 0
+          fi
+          code=$(curl -sS -X POST "$API_URL/decay/run" \
+            -H "x-cron-secret: $DECAY_CRON_SECRET" \
+            -o /tmp/out.txt -w "%{http_code}" --max-time 90 || echo "000")
+          echo "HTTP $code"; cat /tmp/out.txt || true
+          case "$code" in 2*) exit 0;; *) echo "decay sweep did not return 2xx"; exit 1;; esac
+
+  consistency:
+    name: consistency audit
+    # Read-only self-audit. This job is DESIGNED TO FAIL when the database stops
+    # agreeing with itself, because a failed Actions run emails the repo owner and
+    # that is the whole point — reward bugs are otherwise invisible until a human
+    # happens to play and notice. It never repairs anything: auto-repair would just
+    # be a new way to hide this class of bug.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Audit reward + progress consistency
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          DECAY_CRON_SECRET: ${{ secrets.DECAY_CRON_SECRET }}
+        run: |
+          if [ -z "$API_URL" ] || [ -z "$DECAY_CRON_SECRET" ]; then
+            echo "API_URL or DECAY_CRON_SECRET not set — skipping."; exit 0
+          fi
+          code=$(curl -sS -X POST "$API_URL/health/consistency" \
+            -H "x-cron-secret: $DECAY_CRON_SECRET" \
+            -o /tmp/con.json -w "%{http_code}" --max-time 90 || echo "000")
+          echo "HTTP $code"; cat /tmp/con.json || true; echo
+          # A booting instance is not a finding — do not cry wolf.
+          case "$code" in 2*) ;; *) echo "::warning::consistency check unreachable (HTTP $code)"; exit 0;; esac
+          if grep -q '"healthy":true' /tmp/con.json; then
+            echo "Consistency OK."; exit 0
+          fi
+          echo "::error::Consistency check FAILED — see the JSON above."
+          exit 1

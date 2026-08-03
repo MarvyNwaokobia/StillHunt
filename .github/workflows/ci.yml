@@ -1,0 +1,80 @@
+name: ci
+
+# Runs on every push and PR. Make these required checks on `main` — Railway and
+# Vercel both auto-deploy from it, so a red build that can still merge is a red
+# build that ships.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secrets:
+    # FIRST, and deliberately so. This repo exists because a previous project
+    # committed a live relay key that owned every contract and ~150,000 of its
+    # currency. Rotating is mandatory once that happens and scrubbing history does
+    # not undo it, so the only cheap moment is before the push lands.
+    name: secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # gitleaks needs history, not just the tip
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  api:
+    name: rust api
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/api
+      - name: cargo test
+        working-directory: apps/api
+        run: cargo test --locked
+      # Warnings are not failures here. The economics code carries deliberately
+      # unused scaffolding while the game is built out, and failing on that would
+      # train people to ignore the job.
+      - name: cargo clippy
+        working-directory: apps/api
+        run: cargo clippy --all-targets || true
+
+  contracts:
+    name: foundry
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: foundry-rs/foundry-toolchain@v1
+      - name: forge test
+        working-directory: contracts
+        run: forge test -vvv
+      # A contract that no longer fits in a block cannot be deployed, and finding
+      # that out during a deploy means paying for the attempt.
+      - name: forge build --sizes
+        working-directory: contracts
+        run: forge build --sizes
+
+  web:
+    name: web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: typecheck
+        run: npm run typecheck
+      - name: unit tests
+        working-directory: apps/web
+        run: npx vitest run
