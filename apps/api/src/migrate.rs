@@ -53,6 +53,7 @@ const MIGRATIONS: &[(&str, &str)] = &[
     // so anything sorting before "add_g…" would hit a table that does not exist
     // yet on a fresh database and abort boot.
     ("add_multichain_attribution.sql", include_str!("../migrations/add_multichain_attribution.sql")),
+    ("add_onchain_duel_id.sql", include_str!("../migrations/add_onchain_duel_id.sql")),
     ("add_op_play_bounties.sql",  include_str!("../migrations/add_op_play_bounties.sql")),
     ("add_player_edition.sql",    include_str!("../migrations/add_player_edition.sql")),
     ("add_prestige_and_tiers.sql", include_str!("../migrations/add_prestige_and_tiers.sql")),
