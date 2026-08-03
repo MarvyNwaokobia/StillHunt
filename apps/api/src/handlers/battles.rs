@@ -91,15 +91,14 @@ async fn record_battle_chain_tx(
     chain: CHAINID_GONE,
     tx_hash: &str,
 ) {
-    use CHAINID_GONE;
-
+    
     if let Err(e) = sqlx::query(
         "INSERT INTO battle_chain_records (battle_id, chain_id, tx_hash)
          VALUES ($1, $2, $3)
          ON CONFLICT (battle_id, chain_id) DO NOTHING",
     )
     .bind(battle_id)
-    .bind(chain.as_i32())
+    .bind(crate::services::chain::CHAIN_ID as i32)
     .bind(tx_hash)
     .execute(db)
     .await

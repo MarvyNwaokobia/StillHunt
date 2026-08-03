@@ -14,7 +14,6 @@ pub mod seasons;
 pub mod claims;
 pub mod ledger;
 pub mod debts;
-pub mod gas;
 pub mod admin;
 pub mod consistency;
 pub mod client_errors;
@@ -62,9 +61,6 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
         // Read-only self-audit; the cron fails its job when this reports trouble.
         .route("/health/consistency", web::post().to(consistency::run_consistency_check))
         .route("/relay-address", web::get().to(ledger::get_relay_address))
-        .route("/withdraw-fee", web::get().to(ledger::get_withdraw_fee))
-        // Which reward pools this server actually loaded — see get_pools.
-        .route("/pools", web::get().to(ledger::get_pools))
         .route("/ws/battle", web::get().to(ws::battle_ws))
         .service(
             web::scope("/players")
@@ -93,10 +89,8 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 // every win and has no accrued balance to claim.
                 .route("/{wallet}/claimable", web::get().to(claims::get_claimable))
                 .route("/{wallet}/claim", web::post().to(claims::claim))
-                .route("/{wallet}/transfer", web::post().to(ledger::transfer_out))
                 .route("/{wallet}/debt", web::get().to(debts::get_debt))
-                .route("/{wallet}/settle-debt", web::post().to(debts::settle_debt))
-                .route("/{wallet}/gas-topup", web::post().to(gas::gas_topup)),
+                .route("/{wallet}/settle-debt", web::post().to(debts::settle_debt)),
         )
         .service(
             web::scope("/battles")

@@ -42,8 +42,7 @@ pub async fn list_items(state: web::Data<AppState>) -> HttpResponse {
             let mut by_item: std::collections::HashMap<uuid::Uuid, std::collections::HashMap<String, f64>> =
                 std::collections::HashMap::new();
             for (item_id, chain_id, price) in rows {
-                use rust_decimal::prelude::ToPrimitive;
-                if let Some(p) = price.to_f64() {
+                                if let Some(p) = price.to_f64() {
                     by_item.entry(item_id).or_default().insert(chain_id.to_string(), p);
                 }
             }

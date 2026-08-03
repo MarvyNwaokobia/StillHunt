@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::str::FromStr;
 
-use CHAINID_GONE;
 use crate::utils::{is_valid_wallet, normalize_wallet};
 use crate::AppState;
 
@@ -26,7 +25,6 @@ pub async fn insert_ledger_entry(
     amount: Decimal,
     tx_hash: Option<&str>,
     counterparty: Option<&str>,
-    chain: ChainId,
 ) {
     let result = sqlx::query(
         "INSERT INTO g_ledger (wallet_address, category, amount, tx_hash, counterparty, chain_id)
@@ -37,7 +35,7 @@ pub async fn insert_ledger_entry(
     .bind(amount)
     .bind(tx_hash)
     .bind(counterparty)
-    .bind(chain.as_i32())
+    .bind(crate::services::chain::CHAIN_ID as i32)
     .execute(db)
     .await;
 
@@ -87,17 +85,6 @@ fn split_fee(gross: U256, bps: u64) -> (U256, U256) {
     (gross - fee, fee)
 }
 
-// ── GET /withdraw-fee ──────────────────────────────────────────────────────────
-// Public. The UI reads the rate from here rather than hardcoding it, so the
-// number a player is shown before signing is the number the server will actually
-// charge — a hardcoded copy would drift the first time the rate changed.
-pub async fn get_withdraw_fee() -> HttpResponse {
-    HttpResponse::Ok().json(json!({
-        "bps":     withdraw_fee_bps(),
-        "percent": withdraw_fee_bps() as f64 / 100.0,
-        "address": withdraw_fee_address(),
-    }))
-}
 
 // ── GET /relay-address ─────────────────────────────────────────────────────────
 // Public (addresses aren't secret) — the frontend needs this as the `spender`
@@ -109,29 +96,6 @@ pub async fn get_relay_address(state: web::Data<AppState>) -> HttpResponse {
     }
 }
 
-// ── GET /pools ────────────────────────────────────────────────────────────────
-// Which reward pools this server is ACTUALLY using. Contract addresses are public
-// on-chain, so nothing sensitive is exposed — and without this the only way to know
-// whether ENDLESS_REWARD_POOL_CONTRACT is set is to read the host's env vars.
-//
-// `endless_dedicated: false` is the one to watch: it means Endless is falling back to
-// the shared pool and is spending the same G$ that funds season prizes and bounties.
-pub async fn get_pools(state: web::Data<AppState>) -> HttpResponse {
-    let Some(chain) = state.chain.as_ref() else {
-        return HttpResponse::ServiceUnavailable().json(json!({"error": "Chain relay not available"}));
-    };
-    let dedicated = chain.dedicated_endless_pool_address();
-    HttpResponse::Ok().json(json!({
-        "reward_pool":       chain.reward_pool_address().map(|a| format!("{:?}", a)),
-        "endless_pool":      chain.endless_pool_address().map(|a| format!("{:?}", a)),
-        "endless_dedicated": dedicated.is_some(),
-        "note": if dedicated.is_some() {
-            "Endless pays from its own pool."
-        } else {
-            "ENDLESS_REWARD_POOL_CONTRACT is UNSET — Endless is paying from the shared reward pool, which also funds season prizes."
-        },
-    }))
-}
 
 fn wei_to_g(amount: U256) -> Decimal {
     Decimal::from_str(&amount.to_string()).unwrap_or(Decimal::ZERO) / Decimal::from(10u64.pow(18))
@@ -221,7 +185,7 @@ pub async fn record_ubi_claim(db: &sqlx::PgPool, wallet: &str, body: &DailyClaim
         return;
     }
     // GoodDollar's UBI is a Celo protocol claim by definition — it exists nowhere else.
-    insert_ledger_entry(db, wallet, "ubi_claim", amount, body.tx_hash.as_deref(), None, ChainId::Celo).await;
+    insert_ledger_entry(db, wallet, "ubi_claim", amount, body.tx_hash.as_deref(), None).await;
 }
 
 // ── POST /players/:wallet/transfer ────────────────────────────────────────────
@@ -239,127 +203,6 @@ pub struct TransferRequest {
     pub s: String,
 }
 
-pub async fn transfer_out(
-    state: web::Data<AppState>,
-    path: web::Path<String>,
-    body: web::Json<TransferRequest>,
-) -> HttpResponse {
-    let wallet = normalize_wallet(&path.into_inner());
-
-    if !is_valid_wallet(&body.to) {
-        return HttpResponse::BadRequest().json(json!({"error": "Invalid destination address"}));
-    }
-
-    let from: Address = match wallet.parse() {
-        Ok(a) => a,
-        Err(_) => return HttpResponse::BadRequest().json(json!({"error": "Invalid wallet address"})),
-    };
-    let to: Address = body.to.parse().expect("validated by is_valid_wallet above");
-
-    let amount: U256 = match U256::from_dec_str(&body.amount_wei) {
-        Ok(a) if !a.is_zero() => a,
-        _ => return HttpResponse::BadRequest().json(json!({"error": "Invalid amount"})),
-    };
-
-    let chain = match state.chain.as_ref() {
-        Some(c) => c,
-        None => {
-            return HttpResponse::ServiceUnavailable().json(json!({"error": "Chain relay not available"}))
-        }
-    };
-
-    // `amount` is the GROSS the player signed for — the full sum leaving their
-    // wallet. The fee comes out of it, so the destination receives `net`. Charging
-    // the fee ON TOP would need a permit larger than the amount they were shown,
-    // which is exactly the sort of surprise a withdrawal fee must not spring.
-    let bps = withdraw_fee_bps();
-    let (net, fee) = split_fee(amount, bps);
-    if net.is_zero() {
-        return HttpResponse::BadRequest()
-            .json(json!({"error": "Amount too small after the withdrawal fee"}));
-    }
-
-    let fee_to: Address = match withdraw_fee_address().parse() {
-        Ok(a) => a,
-        Err(_) => {
-            tracing::error!("WITHDRAW_FEE_ADDRESS is not a valid address — refusing to transfer");
-            return HttpResponse::ServiceUnavailable()
-                .json(json!({"error": "Withdrawal temporarily unavailable"}));
-        }
-    };
-
-    // Check the tank BEFORE spending the player's signature. A permit is
-    // single-use per nonce, so submitting one we cannot pay for burns their
-    // signature and leaves them to sign again for no reason.
-    if !chain.relay_can_pay().await {
-        tracing::error!("RELAY OUT OF GAS — refusing transfer for {} before taking the signature", wallet);
-        return HttpResponse::ServiceUnavailable().json(json!({
-            "error": "StillHunt can't send transactions right now — our relay is out of gas. \
-                      Your G$ has not been touched. This is on us, not your wallet; try again shortly.",
-            "code": crate::services::chain::RELAY_OUT_OF_GAS,
-        }));
-    }
-
-    let hash = match chain
-        .transfer_g_with_fee(from, to, net, fee_to, fee, body.deadline, body.v, &body.r, &body.s)
-        .await
-    {
-        Ok(h) => h,
-        Err(e) => {
-            tracing::warn!("transfer-out failed for {}: {}", wallet, e);
-            // A relay fuel failure is OURS. Saying "signature invalid" here sent
-            // players to re-sign something that could never succeed.
-            if crate::services::chain::is_out_of_gas(&e) {
-                return HttpResponse::ServiceUnavailable().json(json!({
-                    "error": "StillHunt's relay ran out of gas mid-transfer. Your G$ has not been \
-                              touched — this is on us, not your wallet.",
-                    "code": crate::services::chain::RELAY_OUT_OF_GAS,
-                }));
-            }
-            return HttpResponse::BadRequest().json(json!({"error": e}));
-        }
-    };
-    let hash_str = format!("{:?}", hash);
-
-    // Two rows, because they are two different facts: what the player sent out,
-    // and what we took. Recording only the gross would make the fee invisible in
-    // the very ledger a player checks when the number looks wrong.
-    insert_ledger_entry(
-        &state.db,
-        &wallet,
-        "transfer_out",
-        wei_to_g(net),
-        Some(&hash_str),
-        Some(&normalize_wallet(&body.to)),
-        ChainId::Celo,
-    )
-    .await;
-    if !fee.is_zero() {
-        insert_ledger_entry(
-            &state.db,
-            &wallet,
-            "withdraw_fee",
-            wei_to_g(fee),
-            Some(&hash_str),
-            Some(&normalize_wallet(&withdraw_fee_address())),
-            ChainId::Celo,
-        )
-        .await;
-    }
-
-    tracing::info!(
-        "Transfer-out confirmed: {} -> {} net={} fee={} ({} bps) tx={}",
-        wallet, body.to, net, fee, bps, hash_str,
-    );
-
-    HttpResponse::Ok().json(json!({
-        "success":  true,
-        "tx_hash":  hash_str,
-        "sent_g":   wei_to_g(net),
-        "fee_g":    wei_to_g(fee),
-        "fee_bps":  bps,
-    }))
-}
 
 #[cfg(test)]
 mod tests {

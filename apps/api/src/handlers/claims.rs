@@ -25,13 +25,11 @@
 
 use actix_web::{web, HttpResponse};
 use ethers::types::{Address, U256};
-use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use serde::Serialize;
 use serde_json::json;
 use std::str::FromStr;
 
-use CHAINID_GONE;
 use crate::services::earnings;
 use crate::utils::{is_valid_wallet, normalize_wallet};
 use crate::AppState;
@@ -65,13 +63,12 @@ pub async fn get_claimable(state: web::Data<AppState>, path: web::Path<String>) 
         return HttpResponse::BadRequest().json(json!({"error": "Invalid wallet address"}));
     }
 
-    let chain = ChainId::Avalanche;
-    let balance = earnings::balance(&state.db, &wallet, chain).await;
+        let balance = earnings::balance(&state.db, &wallet).await;
 
     let (claimable, reason) = match state.chain.as_ref() {
-        None => (false, Some("Scrip payouts are not enabled yet.".to_string())),
+        None => (false, Some("TALLY payouts are not enabled yet.".to_string())),
         Some(av) if !av.can_mint() => {
-            (false, Some("Scrip payouts are not configured yet.".to_string()))
+            (false, Some("TALLY payouts are not configured yet.".to_string()))
         }
         Some(av) if !av.relay_can_pay().await => (
             false,
@@ -85,8 +82,8 @@ pub async fn get_claimable(state: web::Data<AppState>, path: web::Path<String>) 
 
     HttpResponse::Ok().json(ClaimableResponse {
         balance,
-        symbol: chain.currency_symbol(),
-        chain_id: chain.as_i32(),
+        symbol: "TALLY",
+        chain_id: crate::services::chain::CHAIN_ID as i32,
         claimable,
         reason,
     })
@@ -107,12 +104,12 @@ pub async fn claim(state: web::Data<AppState>, path: web::Path<String>) -> HttpR
 
     let Some(av) = state.chain.as_ref().cloned() else {
         return HttpResponse::ServiceUnavailable()
-            .json(json!({"error": "Scrip payouts are not enabled yet"}));
+            .json(json!({"error": "TALLY payouts are not enabled yet"}));
     };
 
     if !av.can_mint() {
         return HttpResponse::ServiceUnavailable()
-            .json(json!({"error": "Scrip payouts are not configured yet"}));
+            .json(json!({"error": "TALLY payouts are not configured yet"}));
     }
 
     // BEFORE opening a claim, not after. Attaching a balance to a claim we already
@@ -134,8 +131,7 @@ pub async fn claim(state: web::Data<AppState>, path: web::Path<String>) -> HttpR
         Err(_) => return HttpResponse::BadRequest().json(json!({"error": "Invalid wallet address"})),
     };
 
-    let chain = ChainId::Avalanche;
-    let Some(open) = earnings::open_claim(&state.db, &wallet, chain).await else {
+        let Some(open) = earnings::open_claim(&state.db, &wallet).await else {
         return HttpResponse::Ok().json(json!({
             "claimed": false,
             "reason": "Nothing to claim",
@@ -167,17 +163,16 @@ pub async fn claim(state: web::Data<AppState>, path: web::Path<String>) -> HttpR
                 open.amount,
                 Some(&hash_str),
                 None,
-                chain,
             )
             .await;
 
-            tracing::info!("claim paid: {} +{} SCRP tx={}", wallet, open.amount, hash_str);
+            tracing::info!("claim paid: {} +{} TALLY tx={}", wallet, open.amount, hash_str);
             HttpResponse::Ok().json(json!({
                 "claimed":  true,
                 "amount":   open.amount,
-                "symbol":   chain.currency_symbol(),
+                "symbol":   "TALLY",
                 "tx_hash":  hash_str,
-                "chain_id": chain.as_i32(),
+                "chain_id": crate::services::chain::CHAIN_ID as i32,
             }))
         }
         Err(e) => {
