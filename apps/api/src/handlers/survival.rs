@@ -205,7 +205,6 @@ pub async fn rearm(state: web::Data<AppState>, req: HttpRequest, body: web::Json
                 .bind(&tx_hash).bind(&wallet).bind(&body.ref_id).execute(&state.db).await;
             crate::handlers::ledger::insert_ledger_entry(
                 &state.db, &wallet, "survival_rearm", rust_decimal::Decimal::from(cost), Some(&tx_hash), None,
-                CHAINID_GONE::Celo,
             ).await;
             tracing::info!("survival re-arm: {} {} wave{} -{} G$", wallet, body.action, body.wave, cost);
             let remaining = ((allowance - need) / U256::exp10(18)).as_u64();

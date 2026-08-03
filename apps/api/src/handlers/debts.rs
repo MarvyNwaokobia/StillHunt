@@ -138,7 +138,6 @@ pub async fn settle_debt(
 
     crate::handlers::ledger::insert_ledger_entry(
         &state.db, &wallet, "marketplace_purchase", owed, Some(&hash_str), None,
-        CHAINID_GONE::Celo,
     )
     .await;
 

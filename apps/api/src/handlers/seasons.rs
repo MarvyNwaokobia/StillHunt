@@ -412,7 +412,6 @@ async fn settle_season_payout(
             crate::handlers::battles::log_write_failure("season g_earned_lifetime credit", wallet, &credited_locally);
             crate::handlers::ledger::insert_ledger_entry(
                 db, wallet, "season_reward", rust_decimal::Decimal::from(amount), tx_hash.as_deref(), None,
-                CHAINID_GONE::Celo,
             ).await;
             tracing::info!("season payout paid: {} +{} G$ in {} tx", wallet, amount, chunks.len());
             true
