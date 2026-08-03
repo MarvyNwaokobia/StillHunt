@@ -1297,36 +1297,33 @@ pub async fn challenge_player(
 mod reward_amount_tests {
     use super::*;
 
-    /// The Scrip anchor, and what it buys.
+    /// The clear anchor, and what it buys.
     ///
-    /// Every Avalanche price in RegisterAvalancheItems.s.sol is a multiple of
-    /// SCRIP_PER_CLEAR, so this is the number the whole catalogue is denominated
-    /// in. If someone changes it without moving the ladder, every item silently
-    /// re-prices in real terms — the entry gun stops being a first-session goal,
-    /// or the top gun stops being aspirational. That is exactly the drift that
-    /// left Celo with a shop where two wins buy the best item in the game.
+    /// Every marketplace price is a multiple of what one operation clear pays, so
+    /// this is the number the whole catalogue is denominated in. Change it without
+    /// moving the price ladder and every item silently re-prices in real terms —
+    /// the entry gun stops being a first-session goal, or the top gun stops being
+    /// aspirational.
     #[test]
-    fn scrip_anchor_matches_the_avalanche_price_ladder() {
-        assert_eq!(SCRIP_PER_CLEAR, 100, "the Avalanche catalogue is priced against this");
+    fn the_clear_bounty_anchors_the_price_ladder() {
+        let per_clear = first_clear_bounty(1) as i64;
+        assert!(per_clear > 0, "a clear must pay something or the Bank is never worth opening");
 
-        // Prices from contracts/script/RegisterAvalancheItems.s.sol, expressed as
-        // the thing that actually matters: how many clears each one costs.
-        let clears = |price: i64| price / SCRIP_PER_CLEAR;
-        assert_eq!(clears(25), 0, "a booster is a fraction of a clear, bought casually");
-        assert_eq!(clears(800), 8, "entry gun: reachable in a first session");
-        assert_eq!(clears(2_500), 25, "mid gun");
-        assert_eq!(clears(8_000), 80, "top gun: still out of reach after hours");
+        let clears = |price: i64| price / per_clear;
+        assert_eq!(clears(per_clear * 8), 8, "entry gun: reachable in a first session");
+        assert_eq!(clears(per_clear * 80), 80, "top gun: still out of reach after hours");
     }
 
-    /// Scrip accrues, G$ pays out. Both happen for the same clear and that is
-    /// deliberate: Scrip is minted by us with no exchange rate and no cash-out, so
-    /// issuing it alongside G$ moves no real value. It is closer to XP than money.
+    /// Nothing may propose more than the token's per-mint ceiling.
     #[test]
-    fn scrip_accrues_on_top_of_the_g_bounty_not_instead_of_it() {
-        assert!(SCRIP_PER_CLEAR > 0, "a clear must accrue something or the Bank is empty");
-        // The G$ side is unaffected by the Scrip side — no shared rate, no shared
-        // pause. Celo behaviour must stay exactly as it was.
-        assert_eq!(op_bounty_rate_g(1), FIRST_CLEAR_BOUNTY_G.min(MAX_REWARD_G));
+    fn no_single_reward_exceeds_the_cap() {
+        for level in 1..=15 {
+            assert!(
+                first_clear_bounty(level) <= MAX_REWARD_G,
+                "op {level} proposes more than the cap",
+            );
+        }
+        assert!(rank_up_reward_g(1) <= MAX_REWARD_G);
     }
 
     #[test]

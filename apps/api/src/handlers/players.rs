@@ -1,4 +1,4 @@
-use actix_web::{web, HttpRequest, HttpResponse};
+use actix_web::{web, HttpResponse};
 use chrono::Utc;
 use ethers::types::Address;
 use serde::{Deserialize, Serialize};
@@ -390,7 +390,7 @@ async fn credit_referral(state: &AppState, referred: &str, referrer_raw: &str) {
         return;
     }
 
-    let Some(chain) = state.chain.as_ref().cloned() else { return };
+    let Some(_chain) = state.chain.as_ref().cloned() else { return };
     let db = state.db.clone();
     let referred_owned = referred.to_string();
     let referrer_owned = referrer.clone();

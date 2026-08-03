@@ -4,7 +4,6 @@ use serde_json::json;
 use uuid::Uuid;
 
 use crate::AppState;
-use crate::models::mission::CollectResult;
 
 // ── GET /missions/active?wallet=:wallet ───────────────────────────────────────
 #[derive(serde::Deserialize)]

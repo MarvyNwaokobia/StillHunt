@@ -78,6 +78,7 @@ const MIGRATIONS: &[(&str, &str)] = &[
     // Placed earlier it would seed 20 of 25 prices and report success — a silent
     // partial that only shows up as an unbuyable gun on Avalanche.
     ("add_avalanche_item_prices.sql", include_str!("../migrations/add_avalanche_item_prices.sql")),
+    ("add_spends.sql",           include_str!("../migrations/add_spends.sql")),
     ("add_survival_rearms.sql",   include_str!("../migrations/add_survival_rearms.sql")),
     ("fix_decimal_columns.sql",   include_str!("../migrations/fix_decimal_columns.sql")),
     ("fix_ledger_categories.sql", include_str!("../migrations/fix_ledger_categories.sql")),

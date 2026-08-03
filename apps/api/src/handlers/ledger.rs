@@ -1,11 +1,11 @@
 use actix_web::{web, HttpResponse};
-use ethers::types::{Address, U256};
+use ethers::types::U256;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::str::FromStr;
 
-use crate::utils::{is_valid_wallet, normalize_wallet};
+use crate::utils::normalize_wallet;
 use crate::AppState;
 
 /// Records one row in the ledger. Best-effort — a failed insert here must

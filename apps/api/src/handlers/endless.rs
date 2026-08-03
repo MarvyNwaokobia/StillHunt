@@ -1,10 +1,8 @@
 use actix_web::{web, HttpRequest, HttpResponse};
 use chrono::{Datelike, Utc};
-use ethers::types::Address;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::FromRow;
-use std::time::{Duration, Instant};
 use uuid::Uuid;
 
 use crate::AppState;
@@ -682,7 +680,7 @@ async fn accrue_endless_wave(
 /// ref guard. Returns (attempted, reconciled).
 pub async fn sweep_endless_rewards(
     db: &sqlx::PgPool,
-    chain: &crate::services::chain::ChainWriter,
+    _chain: &crate::services::chain::ChainWriter,
 ) -> (u32, u32) {
     let rows: Vec<(Uuid, i32, String, i64)> = sqlx::query_as(
         "SELECT session_id, wave, wallet_address, amount

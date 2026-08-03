@@ -17,7 +17,7 @@
 //! meant to protect the economy for. At 25%, earning another 25,000 past the cap
 //! takes 100,000 of raw rewards — a real brake without a dead end.
 
-use chrono::{DateTime, Datelike, TimeZone, Utc, Weekday};
+use chrono::{DateTime, TimeZone, Utc, Weekday};
 use sqlx::PgPool;
 
 /// EARNING PAUSE — the switch, currently OFF.
@@ -142,7 +142,7 @@ pub async fn status_for(db: &PgPool, wallet: &str) -> serde_json::Value {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Timelike;
+    use chrono::{Datelike, Timelike};
 
     const CAP: u64 = 50_000;
     const RATE: f64 = 0.25;
