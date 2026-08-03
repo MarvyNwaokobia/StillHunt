@@ -1,0 +1,20 @@
+{
+  "name": "@stillhunt/customizer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "StillHunt Character Customization & Marketplace Engine",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "jest --config jest.config.js",
+    "test:watch": "jest --config jest.config.js --watch",
+    "simulate": "npx ts-node --project tsconfig.jest.json src/simulation/viewport.ts"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^22.0.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.3",
+    "typescript": "~6.0.2"
+  }
+}

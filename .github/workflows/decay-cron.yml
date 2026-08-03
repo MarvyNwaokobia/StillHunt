@@ -1,0 +1,96 @@
+name: decay-cron
+
+# Replaces the old Railway decay-cron. Two sweeps live here on DIFFERENT cadences,
+# because they are not equally urgent:
+#
+#   decay      — a slow (days) mechanic. Every 3h is plenty.
+#   reconcile  — re-attempts payouts whose on-chain transfer didn't land. This is
+#                REAL MONEY a player was already told they earned, and this sweep is
+#                the ONLY thing that retries it, so its cadence IS the worst-case
+#                wait. At 3h, a failed payout meant a player waiting hours (which is
+#                exactly what players reported). Every 15 min bounds that to minutes.
+#
+# GitHub fires the whole workflow per schedule entry, so each job gates on which
+# cron triggered it. The reconcile sweep is idempotent (on-chain ref guard) and a
+# no-op when nothing is failed/abandoned, so the extra runs are one cheap request.
+#
+# Requires two repository secrets (Settings → Secrets and variables → Actions):
+#   API_URL            the live API, e.g. https://stillhunt-production.up.railway.app
+#   DECAY_CRON_SECRET  same value as the API's DECAY_CRON_SECRET env var
+on:
+  schedule:
+    - cron: '0 */3 * * *'   # decay + reconcile
+    - cron: '*/15 * * * *'  # reconcile only (GitHub may delay a few min under load)
+  workflow_dispatch: {}      # allow manual runs from the Actions tab
+
+jobs:
+  decay:
+    # Only on the 3h tick (and manual runs) — decay has no reason to run every 15 min.
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 */3 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger decay sweep
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          DECAY_CRON_SECRET: ${{ secrets.DECAY_CRON_SECRET }}
+        run: |
+          if [ -z "$API_URL" ] || [ -z "$DECAY_CRON_SECRET" ]; then
+            echo "API_URL or DECAY_CRON_SECRET secret not set — skipping."; exit 0
+          fi
+          code=$(curl -sS -X POST "$API_URL/decay/run" \
+            -H "x-cron-secret: $DECAY_CRON_SECRET" \
+            -o /tmp/out.txt -w "%{http_code}" --max-time 90 || echo "000")
+          echo "HTTP $code"; cat /tmp/out.txt || true
+          # A cold-started free instance can take a while; only fail on a real error.
+          case "$code" in 2*) exit 0;; *) echo "decay sweep did not return 2xx"; exit 1;; esac
+
+  reconcile:
+    # Every tick. Re-attempts any payout whose on-chain transfer didn't confirm, plus
+    # any row abandoned at 'pending' by a task that died mid-flight.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reconcile unsettled payouts
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          DECAY_CRON_SECRET: ${{ secrets.DECAY_CRON_SECRET }}
+        run: |
+          if [ -z "$API_URL" ] || [ -z "$DECAY_CRON_SECRET" ]; then
+            echo "API_URL or DECAY_CRON_SECRET secret not set — skipping."; exit 0
+          fi
+          code=$(curl -sS -X POST "$API_URL/battles/bounties/reconcile" \
+            -H "x-cron-secret: $DECAY_CRON_SECRET" \
+            -o /tmp/rec.txt -w "%{http_code}" --max-time 90 || echo "000")
+          echo "HTTP $code"; cat /tmp/rec.txt || true
+          case "$code" in 2*) exit 0;; *) echo "payout reconcile did not return 2xx"; exit 1;; esac
+
+  consistency:
+    # Read-only self-audit, every tick. This job is DESIGNED TO FAIL when the database
+    # stops agreeing with itself, because a failed Actions job emails the repo owner and
+    # that is the whole point: every reward bug so far was invisible until a human
+    # happened to play and notice. Findings it catches:
+    #   • a player row frozen while their battles keep landing (the exact shape of the
+    #     stale `xp <= 999` CHECK that froze one player's rank for 18 hours), and
+    #   • money owed but still unsettled long past the reconcile sweep's cadence.
+    # It never repairs anything. Auto-repair would just be a new way to hide this class
+    # of bug; a human should see the report and decide.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Audit reward + progress consistency
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          DECAY_CRON_SECRET: ${{ secrets.DECAY_CRON_SECRET }}
+        run: |
+          if [ -z "$API_URL" ] || [ -z "$DECAY_CRON_SECRET" ]; then
+            echo "API_URL or DECAY_CRON_SECRET secret not set — skipping."; exit 0
+          fi
+          code=$(curl -sS -X POST "$API_URL/health/consistency" \
+            -H "x-cron-secret: $DECAY_CRON_SECRET" \
+            -o /tmp/con.json -w "%{http_code}" --max-time 90 || echo "000")
+          echo "HTTP $code"; cat /tmp/con.json || true; echo
+          # A sleeping/booting instance is not a finding — do not cry wolf.
+          case "$code" in 2*) ;; *) echo "::warning::consistency check unreachable (HTTP $code)"; exit 0;; esac
+          if grep -q '"healthy":true' /tmp/con.json; then
+            echo "Consistency OK."; exit 0
+          fi
+          echo "::error::Consistency check FAILED — see the JSON above. Frozen player rows or unsettled payouts were found."
+          exit 1

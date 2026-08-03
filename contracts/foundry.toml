@@ -1,0 +1,36 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+solc_version = "0.8.24"
+optimizer = true
+optimizer_runs = 200
+via_ir = true
+remappings = [
+    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+    "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/",
+    "forge-std/=lib/forge-std/src/",
+]
+
+[rpc_endpoints]
+celo = "${CELO_RPC_URL}"
+alfajores = "${CELO_TESTNET_RPC_URL}"
+# Avalanche C-Chain, id 43114. No shell-style `${VAR:-default}` here: Foundry does
+# not expand that and reads the whole string as one variable name. Set the URL in
+# contracts/.env instead. Prefer a private RPC before --broadcast, since public
+# endpoints rate-limit and a deploy that dies halfway leaves orphan contracts you
+# have already paid for.
+avalanche = "${AVALANCHE_RPC_URL}"
+fuji = "${AVALANCHE_TESTNET_RPC_URL}"
+
+[etherscan]
+celo = { key = "${CELOSCAN_API_KEY}", url = "https://api.celoscan.io/api" }
+alfajores = { key = "${CELOSCAN_API_KEY}", url = "https://api-alfajores.celoscan.io/api" }
+# Snowtrace runs on Routescan now, and the legacy api.snowtrace.io endpoint rejects
+# current keys with "Invalid API Key (#err2)" — which is what the first deploy hit.
+# Routescan needs no real key: it accepts the literal string "verifyContract", so
+# SNOWTRACE_API_KEY is not actually required for Avalanche verification.
+# Verification is what makes a contract readable to a player, an auditor or a grant
+# reviewer, so do not skip --verify on a real deploy.
+avalanche = { key = "verifyContract", url = "https://api.routescan.io/v2/network/mainnet/evm/43114/etherscan", chain = 43114 }
+fuji = { key = "verifyContract", url = "https://api.routescan.io/v2/network/testnet/evm/43113/etherscan", chain = 43113 }
