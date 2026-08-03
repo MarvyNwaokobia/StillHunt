@@ -336,7 +336,7 @@ pub struct CreatePlayerRequest {
 ///
 /// Referrals deliberately keep paying through that pause: it is a growth lever
 /// rather than a grind, and the amount already reflects that.
-const REFERRAL_REWARD_G: u64 = 100;
+const REFERRAL_REWARD: u64 = 100;
 
 /// Credit a referrer, once, for bringing in a newly created player.
 ///
@@ -362,25 +362,6 @@ async fn credit_referral(state: &AppState, referred: &str, referrer_raw: &str) {
 
     // Neither side may be a non-earning edition.
     //
-    // The REFERRED player is the identity argument above: no gate passed, nothing
-    // proven, nothing paid. The REFERRER is simpler — their edition does not pay
-    // real money, so there is nothing to credit them with.
-    //
-    // Checked before the `referrals` row is claimed on purpose. Claiming first and
-    // paying nothing would burn the one-per-referred-wallet slot, leaving a player
-    // who later joins properly permanently unable to credit anyone.
-    if !crate::services::edition::wallet_earns(&state.db, referred).await {
-        tracing::info!(
-            "referral skipped: {} signed up in a non-earning edition, no identity gate passed",
-            referred,
-        );
-        return;
-    }
-    if !crate::services::edition::wallet_earns(&state.db, &referrer).await {
-        tracing::info!("referral skipped: referrer {} is in a non-earning edition", referrer);
-        return;
-    }
-
     // The referrer must be a real player. Otherwise any address could be named
     // and paid, including one the referred user controls.
     let exists: Option<(String,)> =
@@ -402,7 +383,7 @@ async fn credit_referral(state: &AppState, referred: &str, referrer_raw: &str) {
     )
     .bind(referred)
     .bind(&referrer)
-    .bind(REFERRAL_REWARD_G as i64)
+    .bind(REFERRAL_REWARD as i64)
     .execute(&state.db)
     .await;
     if claimed.map(|r| r.rows_affected()).unwrap_or(0) != 1 {
@@ -414,67 +395,44 @@ async fn credit_referral(state: &AppState, referred: &str, referrer_raw: &str) {
     let referred_owned = referred.to_string();
     let referrer_owned = referrer.clone();
 
-    // Off the request path: the new player should not wait on a chain write to
-    // finish creating their character.
     tokio::spawn(async move {
-        settle_referral(&db, &chain, &referrer_owned, &referred_owned, REFERRAL_REWARD_G).await;
+        settle_referral(&db, &referrer_owned, &referred_owned, REFERRAL_REWARD).await;
     });
 }
 
 /// Pay ONE referral from the main reward pool and record the outcome. Idempotent.
+/// Accrues a referral bonus to the recruiter.
 ///
-/// Shared by the live path above and the cron reconcile sweep, which is the whole point
-/// of it existing. Referrals were the one payout with no automatic retry: first-clear
-/// bounties and rank-up bonuses are swept every 15 minutes, but a failed referral sat at
-/// `status = 'failed'` for ever, reachable only through an admin endpoint that nothing in
-/// the UI called. Two of them were stranded that way when the main pool ran dry, with no
-/// route to ever being paid.
+/// Safe to call repeatedly on the same referral: the ref key is derived from the
+/// recruited wallet, so `earnings::award` credits exactly once no matter how many
+/// times this runs. Returns the status it settled on.
 ///
-/// Safe to call repeatedly on the same referral: the on-chain reference is derived from
-/// the referred wallet, so `reward_ref_used` catches a payout that already landed and
-/// marks the row paid rather than sending twice. Returns the status it settled on.
+/// This used to send an on-chain transfer from a reward pool, which could strand
+/// a referral permanently when the pool ran dry — the DB said owed, the chain had
+/// nothing, and the retry route did not exist. An accrual cannot run dry.
 pub async fn settle_referral(
     db: &sqlx::PgPool,
-    chain: &crate::services::chain::ChainWriter,
     referrer: &str,
     referred: &str,
-    amount_g: u64,
+    amount: u64,
 ) -> &'static str {
-    let Ok(addr) = referrer.parse::<Address>() else {
-        tracing::error!("referral settle: {} is not a valid address", referrer);
-        return "failed";
-    };
-    let reference = ethers::utils::keccak256(format!("referral:{}", referred).as_bytes());
+    let credited = crate::services::earnings::award(
+        db,
+        referrer,
+        "referral",
+        rust_decimal::Decimal::from(amount),
+        &format!("referral:{referred}"),
+    ).await;
 
-    // Already delivered on a previous attempt whose DB write did not land.
-    if chain.reward_ref_used(reference).await.unwrap_or(false) {
-        let _ = sqlx::query("UPDATE referrals SET status = 'paid', paid_at = now() WHERE referred_wallet = $1")
-            .bind(referred).execute(db).await;
-        return "paid";
-    }
+    let _ = sqlx::query(
+        "UPDATE referrals SET status = 'paid', paid_at = now() WHERE referred_wallet = $1",
+    )
+    .bind(referred).execute(db).await;
 
-    match chain.distribute_reward(addr, amount_g, reference).await {
-        Ok(Some(tx)) => {
-            let _ = sqlx::query(
-                "UPDATE referrals SET status = 'paid', tx_hash = $1, paid_at = now()
-                 WHERE referred_wallet = $2",
-            )
-            .bind(&tx).bind(referred).execute(db).await;
-            crate::handlers::ledger::insert_ledger_entry(
-                db, referrer, "referral_reward",
-                rust_decimal::Decimal::from(amount_g), Some(&tx), None,
-                CHAINID_GONE::Celo,
-            ).await;
-            tracing::info!("referral paid: {} recruited {} (+{} G$)", referrer, referred, amount_g);
-            "paid"
-        }
-        _ => {
-            let _ = sqlx::query("UPDATE referrals SET status = 'failed' WHERE referred_wallet = $1")
-                .bind(referred).execute(db).await;
-            tracing::error!("referral payout FAILED for {} (recruited {})", referrer, referred);
-            "failed"
-        }
+    if credited {
+        tracing::info!("referral accrued: {} recruited {} (+{} TALLY)", referrer, referred, amount);
     }
+    "paid"
 }
 
 pub async fn create_player(
@@ -525,12 +483,9 @@ pub async fn create_player(
     .bind(body.speed_stat.unwrap_or(10))
     .bind(&body.magic_email)
     .bind(&body.magic_issuer)
-    // Normalised through Edition::parse so an unknown string lands on 'web' rather
-    // than tripping the CHECK constraint and failing the whole signup.
-    .bind(
-        crate::services::edition::Edition::parse(body.edition.as_deref().unwrap_or("web"))
-            .as_str(),
-    )
+    // One edition now. The column stays so existing rows keep their value, but
+    // every new signup is the same thing and nothing branches on it.
+    .bind("web")
     .fetch_one(&state.db)
     .await;
 
@@ -928,90 +883,11 @@ struct RetriedReferral {
     error: Option<String>,
 }
 
-pub async fn retry_referrals(req: HttpRequest, state: web::Data<AppState>) -> HttpResponse {
-    if let Err(resp) = crate::handlers::admin::verify_admin_token(&req) {
-        return resp;
-    }
-    let Some(chain) = state.chain.as_ref() else {
-        return HttpResponse::ServiceUnavailable().json(json!({"error": "Chain relay not available"}));
-    };
+// The referral retry sweep is gone with the reward pool. It existed because a
+// referral payout could fail on-chain and sit at status 'failed' for ever with no
+// automatic route to being paid. `settle_referral` is now a single idempotent
+// INSERT, so there is nothing that can half-fail and nothing to sweep.
 
-    let owed: Vec<(String, String, i64)> = sqlx::query_as(
-        "SELECT referrer_wallet, referred_wallet, amount FROM referrals
-         WHERE status <> 'paid' ORDER BY created_at ASC",
-    )
-    .fetch_all(&state.db)
-    .await
-    .unwrap_or_default();
-
-    let mut results: Vec<RetriedReferral> = Vec::with_capacity(owed.len());
-    let (mut paid_count, mut paid_g) = (0i64, 0i64);
-
-    for (referrer, referred, amount) in owed {
-        let mut row = RetriedReferral {
-            referrer: referrer.clone(),
-            referred: referred.clone(),
-            amount_g: amount,
-            status: "failed".into(),
-            tx_hash: None,
-            error: None,
-        };
-        let Ok(addr) = referrer.parse::<Address>() else {
-            row.error = Some("unparseable referrer address".into());
-            results.push(row);
-            continue;
-        };
-
-        // Same ref the original attempt used, so a payout that DID land on-chain
-        // but lost its receipt is reconciled rather than paid twice.
-        let reference = ethers::utils::keccak256(format!("referral:{}", referred).as_bytes());
-        if chain.reward_ref_used(reference).await.unwrap_or(false) {
-            let _ = sqlx::query(
-                "UPDATE referrals SET status = 'paid', paid_at = now() WHERE referred_wallet = $1",
-            )
-            .bind(&referred).execute(&state.db).await;
-            row.status = "already_paid_on_chain".into();
-            results.push(row);
-            continue;
-        }
-
-        match chain.distribute_reward(addr, amount.max(0) as u64, reference).await {
-            Ok(Some(tx)) => {
-                let _ = sqlx::query(
-                    "UPDATE referrals SET status = 'paid', tx_hash = $1, paid_at = now()
-                     WHERE referred_wallet = $2",
-                )
-                .bind(&tx).bind(&referred).execute(&state.db).await;
-                crate::handlers::ledger::insert_ledger_entry(
-                    &state.db, &referrer, "referral_reward",
-                    rust_decimal::Decimal::from(amount), Some(&tx), None,
-                    CHAINID_GONE::Celo,
-                ).await;
-                tracing::info!("referral retry PAID: {} recruited {} (+{} G$) tx={}", referrer, referred, amount, tx);
-                paid_count += 1;
-                paid_g += amount;
-                row.status = "paid".into();
-                row.tx_hash = Some(tx);
-            }
-            Ok(None) => {
-                row.error = Some("reward pool not configured".into());
-                tracing::error!("referral retry: pool unconfigured, {} still owed {} G$", referrer, amount);
-            }
-            Err(e) => {
-                tracing::error!("referral retry FAILED for {} ({} G$): {}", referrer, amount, e);
-                row.error = Some(e);
-            }
-        }
-        results.push(row);
-    }
-
-    HttpResponse::Ok().json(json!({
-        "attempted": results.len(),
-        "paid":      paid_count,
-        "paid_g":    paid_g,
-        "results":   results,
-    }))
-}
 
 // ── GET /players/:wallet/referrals ────────────────────────────────────────────
 /// How many verified fighters this player has recruited, and what they earned.
