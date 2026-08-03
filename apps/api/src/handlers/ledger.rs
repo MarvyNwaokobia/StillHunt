@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::str::FromStr;
 
-use crate::services::chain_id::ChainId;
+use CHAINID_GONE;
 use crate::utils::{is_valid_wallet, normalize_wallet};
 use crate::AppState;
 

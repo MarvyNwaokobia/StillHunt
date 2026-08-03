@@ -165,7 +165,7 @@ pub async fn rearm(state: web::Data<AppState>, req: HttpRequest, body: web::Json
             "need_arm": true, "cost_g": cost,
         }));
     }
-    let balance = chain.g_balance(owner).await.unwrap_or_else(|_| U256::zero());
+    let balance = chain.tally_balance(owner).await.unwrap_or_else(|_| U256::zero());
     if balance < need {
         return HttpResponse::PaymentRequired().json(json!({
             "error": "Not enough G$ for this re-arm", "cost_g": cost,
@@ -205,7 +205,7 @@ pub async fn rearm(state: web::Data<AppState>, req: HttpRequest, body: web::Json
                 .bind(&tx_hash).bind(&wallet).bind(&body.ref_id).execute(&state.db).await;
             crate::handlers::ledger::insert_ledger_entry(
                 &state.db, &wallet, "survival_rearm", rust_decimal::Decimal::from(cost), Some(&tx_hash), None,
-                crate::services::chain_id::ChainId::Celo,
+                CHAINID_GONE::Celo,
             ).await;
             tracing::info!("survival re-arm: {} {} wave{} -{} G$", wallet, body.action, body.wave, cost);
             let remaining = ((allowance - need) / U256::exp10(18)).as_u64();

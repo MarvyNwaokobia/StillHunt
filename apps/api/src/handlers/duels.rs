@@ -146,7 +146,7 @@ async fn escrow_stake(
     }
 
     let need = g_wei(stake_g as u64);
-    let balance = chain.g_balance(owner).await.unwrap_or_else(|_| U256::zero());
+    let balance = chain.tally_balance(owner).await.unwrap_or_else(|_| U256::zero());
     if balance < need {
         return Err(HttpResponse::PaymentRequired().json(json!({
             "error": "Not enough G$ for this stake", "stake_g": stake_g,
@@ -162,7 +162,7 @@ async fn escrow_stake(
             crate::handlers::ledger::insert_ledger_entry(
                 &state.db, wallet, "duel_stake",
                 rust_decimal::Decimal::from(-stake_g), Some(&tx_hash), None,
-                crate::services::chain_id::ChainId::Celo,
+                CHAINID_GONE::Celo,
             ).await;
             Ok(tx_hash)
         }
@@ -190,7 +190,7 @@ async fn payout(state: &AppState, wallet: &str, amount_g: u64, ref_key: &str) ->
             crate::handlers::ledger::insert_ledger_entry(
                 &state.db, wallet, "duel_payout",
                 rust_decimal::Decimal::from(amount_g), Some(&tx), None,
-                crate::services::chain_id::ChainId::Celo,
+                CHAINID_GONE::Celo,
             ).await;
             Some(tx)
         }

@@ -228,7 +228,7 @@ pub async fn payout_preview(req: HttpRequest, state: web::Data<AppState>, path: 
         Some(chain) => {
             let addr = chain.reward_pool_address();
             let bal = match addr {
-                Some(a) => chain.g_balance(a).await.ok().map(|b| (b / ethers::types::U256::exp10(18)).as_u64() as i64),
+                Some(a) => chain.tally_balance(a).await.ok().map(|b| (b / ethers::types::U256::exp10(18)).as_u64() as i64),
                 None => None,
             };
             let celo = chain.celo_balance(chain.relay_address()).await.ok()
@@ -412,7 +412,7 @@ async fn settle_season_payout(
             crate::handlers::battles::log_write_failure("season g_earned_lifetime credit", wallet, &credited_locally);
             crate::handlers::ledger::insert_ledger_entry(
                 db, wallet, "season_reward", rust_decimal::Decimal::from(amount), tx_hash.as_deref(), None,
-                crate::services::chain_id::ChainId::Celo,
+                CHAINID_GONE::Celo,
             ).await;
             tracing::info!("season payout paid: {} +{} G$ in {} tx", wallet, amount, chunks.len());
             true

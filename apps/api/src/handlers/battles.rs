@@ -33,7 +33,7 @@ fn uuid_to_bytes32(id: Uuid) -> [u8; 32] {
 #[allow(clippy::too_many_arguments)]
 async fn mirror_battle_to_avalanche(
     db: &sqlx::PgPool,
-    avalanche: Option<crate::services::avalanche::AvalancheWriter>,
+    avalanche: Option<crate::services::chain::ChainWriter>,
     battle_id: Uuid,
     battle_bytes: [u8; 32],
     winner: Address,
@@ -58,13 +58,13 @@ async fn mirror_battle_to_avalanche(
     }
 
     if let Some(hash) = av
-        .record_battle(battle_bytes, winner, loser, xp_winner, xp_loser, is_bot)
+        .record_contract(battle_bytes, winner, loser, xp_winner, xp_loser, is_bot)
         .await
     {
         record_battle_chain_tx(
             db,
             battle_id,
-            crate::services::chain_id::ChainId::Avalanche,
+            CHAINID_GONE::Avalanche,
             &format!("{:?}", hash),
         )
         .await;
@@ -88,10 +88,10 @@ async fn mirror_battle_to_avalanche(
 async fn record_battle_chain_tx(
     db: &sqlx::PgPool,
     battle_id: Uuid,
-    chain: crate::services::chain_id::ChainId,
+    chain: CHAINID_GONE,
     tx_hash: &str,
 ) {
-    use crate::services::chain_id::ChainId;
+    use CHAINID_GONE;
 
     if let Err(e) = sqlx::query(
         "INSERT INTO battle_chain_records (battle_id, chain_id, tx_hash)
@@ -531,7 +531,7 @@ pub(crate) async fn award_player(
                     settle_rank_up_reward(&db, &chain, &wallet_owned, &reward_key, reward_g).await;
                 }
                 if let Some(rank) = promoted_rank {
-                    chain.record_rank_up(addr, rank.clone()).await;
+                    chain.record_rank(addr, rank.clone()).await;
                     chain.enroll_in_rank_pool(addr, &rank).await;
                 }
             });
@@ -600,12 +600,12 @@ pub(crate) async fn persist_battle(
         // `if let`, so an unconfigured Celo relay also skips the mirror — fine in
         // practice, since Celo is always configured, and it keeps `record_on_chain`
         // as the single gate for whether this match is recorded anywhere at all.
-        let avalanche = state.avalanche.clone();
+        let avalanche = state.chain.clone();
         tokio::spawn(async move {
-            if let Some(hash) = chain.record_battle(battle_bytes, winner_addr, loser_addr, xp_u8, 0, is_bot).await {
+            if let Some(hash) = chain.record_contract(battle_bytes, winner_addr, loser_addr, xp_u8, 0, is_bot).await {
                 let hash_str = format!("{:?}", hash);
                 record_battle_chain_tx(
-                    &db, battle_id, crate::services::chain_id::ChainId::Celo, &hash_str,
+                    &db, battle_id, CHAINID_GONE::Celo, &hash_str,
                 ).await;
             }
             mirror_battle_to_avalanche(
@@ -1199,7 +1199,7 @@ async fn settle_first_clear_bounty(
                 log_write_failure("g_earned_lifetime credit", wallet, &credited_locally);
                 crate::handlers::ledger::insert_ledger_entry(
                     db, wallet, "battle_reward", rust_decimal::Decimal::from(amount), tx_hash.as_deref(), None,
-                    crate::services::chain_id::ChainId::Celo,
+                    CHAINID_GONE::Celo,
                 ).await;
                 tracing::info!(
                     "first-clear bounty paid: {} op{} +{} G${}",
@@ -1253,7 +1253,7 @@ async fn award_scrip_for_clear(state: &AppState, wallet: &str, level: i32) {
     crate::services::earnings::award(
         &state.db,
         wallet,
-        crate::services::chain_id::ChainId::Avalanche,
+        CHAINID_GONE::Avalanche,
         "first_clear",
         rust_decimal::Decimal::from(SCRIP_PER_CLEAR),
         &ref_key,
@@ -1315,7 +1315,7 @@ async fn settle_op_play_bounty(
                 log_write_failure("g_earned_lifetime credit", wallet, &credited_locally);
                 crate::handlers::ledger::insert_ledger_entry(
                     db, wallet, "battle_reward", rust_decimal::Decimal::from(amount), tx_hash.as_deref(), None,
-                    crate::services::chain_id::ChainId::Celo,
+                    CHAINID_GONE::Celo,
                 ).await;
                 tracing::info!("op-play bounty paid: {} op{} +{} G$ (battle {})", wallet, level, amount, battle_id);
             }
@@ -1385,7 +1385,7 @@ async fn settle_rank_up_reward(
                 log_write_failure("g_earned_lifetime credit", wallet, &credited_locally);
                 crate::handlers::ledger::insert_ledger_entry(
                     db, wallet, "battle_reward", rust_decimal::Decimal::from(amount), tx_hash.as_deref(), None,
-                    crate::services::chain_id::ChainId::Celo,
+                    CHAINID_GONE::Celo,
                 ).await;
                 tracing::info!(
                     "rank-up reward paid: {} {} +{} G${}",
@@ -1746,15 +1746,15 @@ pub async fn challenge_player(
         let xp_ch = xp_challenger.min(255) as u8;
         let xp_op = xp_opponent.min(255) as u8;
         let db = state.db.clone();
-        let avalanche = state.avalanche.clone();
+        let avalanche = state.chain.clone();
         let battle_uuid = battle_id;
         tokio::spawn(async move {
             if let (Some(ch), Some(op)) = (ch_addr, op_addr) {
                 let (winner_addr, loser_addr) = if ch_won { (ch, op) } else { (op, ch) };
-                if let Some(hash) = chain.record_battle(battle_bytes, winner_addr, loser_addr, xp_ch, xp_op, false).await {
+                if let Some(hash) = chain.record_contract(battle_bytes, winner_addr, loser_addr, xp_ch, xp_op, false).await {
                     let hash_str = format!("{:?}", hash);
                     record_battle_chain_tx(
-                        &db, battle_uuid, crate::services::chain_id::ChainId::Celo, &hash_str,
+                        &db, battle_uuid, CHAINID_GONE::Celo, &hash_str,
                     ).await;
                 }
                 mirror_battle_to_avalanche(

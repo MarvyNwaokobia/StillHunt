@@ -1,13 +1,11 @@
 use actix_web::{web, HttpResponse};
 
 pub mod players;
-pub mod identity;
 pub mod battles;
 pub mod missions;
 pub mod items;
 pub mod decay;
 pub mod duels;
-pub mod rewards;
 pub mod ws;
 pub mod endless;
 pub mod survival;
@@ -68,10 +66,6 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
         // Which reward pools this server actually loaded — see get_pools.
         .route("/pools", web::get().to(ledger::get_pools))
         .route("/ws/battle", web::get().to(ws::battle_ws))
-        .service(
-            web::scope("/identity")
-                .route("/verify/{wallet}", web::get().to(identity::verify_identity)),
-        )
         .service(
             web::scope("/players")
                 .route("", web::get().to(players::list_players))
@@ -137,10 +131,6 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
         .service(
             web::scope("/decay")
                 .route("/run", web::post().to(decay::run_decay_sweep)),
-        )
-        .service(
-            web::scope("/rewards")
-                .route("/sign-claim", web::post().to(rewards::sign_engagement_claim)),
         )
         .service(
             web::scope("/endless")

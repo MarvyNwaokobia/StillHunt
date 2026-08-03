@@ -26,7 +26,7 @@ use rust_decimal::Decimal;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::services::chain_id::ChainId;
+use CHAINID_GONE;
 
 /// A claim that has been opened and had earnings attached, but not yet paid.
 #[derive(Debug, Clone)]

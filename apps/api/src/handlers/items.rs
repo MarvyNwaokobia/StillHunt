@@ -178,8 +178,8 @@ pub async fn purchase_item_relay(
     // Which chain the buyer signed against. Absent = Celo, so every existing client
     // is unaffected.
     let target = match body.chain_id {
-        None => crate::services::chain_id::ChainId::Celo,
-        Some(id) => match crate::services::chain_id::ChainId::from_i32(id) {
+        None => CHAINID_GONE::Celo,
+        Some(id) => match CHAINID_GONE::from_i32(id) {
             Some(c) => c,
             // An unknown id must NOT silently become Celo. Doing so would relay a
             // permit the buyer signed for some other chain against the Celo
@@ -194,7 +194,7 @@ pub async fn purchase_item_relay(
     // charges from its own listing — but the two must agree or reporting drifts
     // away from what actually moved.
     let charged_price: rust_decimal::Decimal = match target {
-        crate::services::chain_id::ChainId::Celo => item.price_g,
+        CHAINID_GONE::Celo => item.price_g,
         other => {
             let p: Option<rust_decimal::Decimal> = sqlx::query_scalar(
                 "SELECT price FROM item_chain_prices WHERE item_id = $1 AND chain_id = $2",
@@ -237,7 +237,7 @@ pub async fn purchase_item_relay(
         };
 
         let relay_result = match target {
-            crate::services::chain_id::ChainId::Celo => {
+            CHAINID_GONE::Celo => {
                 let chain = match state.chain.as_ref() {
                     Some(c) => c,
                     None => return HttpResponse::ServiceUnavailable()
@@ -251,8 +251,8 @@ pub async fn purchase_item_relay(
                     .purchase_item_for(buyer, on_chain_id as u64, body.deadline, body.v, &body.r, &body.s)
                     .await
             }
-            crate::services::chain_id::ChainId::Avalanche => {
-                let av = match state.avalanche.as_ref() {
+            CHAINID_GONE::Avalanche => {
+                let av = match state.chain.as_ref() {
                     Some(a) if a.can_sell() => a,
                     _ => return HttpResponse::ServiceUnavailable()
                         .json(json!({"error": "SCRP purchases are not enabled yet"})),
@@ -316,7 +316,7 @@ pub async fn purchase_item_relay(
     // Celo only: this sweeps shop revenue back into the G$ reward pool that pays
     // bounties. Avalanche has no such pool — SCRP revenue accumulates in the
     // marketplace contract and is earmarked for the future AVAX exit instead.
-    if item.on_chain_id.is_some() && target == crate::services::chain_id::ChainId::Celo {
+    if item.on_chain_id.is_some() && target == CHAINID_GONE::Celo {
         if let Some(chain) = state.chain.as_ref().cloned() {
             tokio::spawn(async move {
                 if let Err(e) = chain.sweep_revenue_to_pool().await {

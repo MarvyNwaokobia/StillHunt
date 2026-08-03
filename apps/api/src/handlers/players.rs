@@ -463,7 +463,7 @@ pub async fn settle_referral(
             crate::handlers::ledger::insert_ledger_entry(
                 db, referrer, "referral_reward",
                 rust_decimal::Decimal::from(amount_g), Some(&tx), None,
-                crate::services::chain_id::ChainId::Celo,
+                CHAINID_GONE::Celo,
             ).await;
             tracing::info!("referral paid: {} recruited {} (+{} G$)", referrer, referred, amount_g);
             "paid"
@@ -555,7 +555,7 @@ pub async fn create_player(
                     let db = state.db.clone();
                     tokio::spawn(async move {
                         if let Ok(addr) = addr_str.parse::<Address>() {
-                            if let Some(hash) = chain.claim_character(addr, class, name).await {
+                            if let Some(hash) = chain.enlist_hunter(addr, class, name).await {
                                 let hash_str = format!("{:?}", hash);
                                 let _ = sqlx::query(
                                     "UPDATE players SET character_claim_tx = $1 WHERE wallet_address = $2",
@@ -985,7 +985,7 @@ pub async fn retry_referrals(req: HttpRequest, state: web::Data<AppState>) -> Ht
                 crate::handlers::ledger::insert_ledger_entry(
                     &state.db, &referrer, "referral_reward",
                     rust_decimal::Decimal::from(amount), Some(&tx), None,
-                    crate::services::chain_id::ChainId::Celo,
+                    CHAINID_GONE::Celo,
                 ).await;
                 tracing::info!("referral retry PAID: {} recruited {} (+{} G$) tx={}", referrer, referred, amount, tx);
                 paid_count += 1;

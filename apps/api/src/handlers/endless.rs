@@ -92,7 +92,7 @@ async fn award_scrip_for_wave(
     crate::services::earnings::award(
         &state.db,
         wallet,
-        crate::services::chain_id::ChainId::Avalanche,
+        CHAINID_GONE::Avalanche,
         "endless_wave",
         rust_decimal::Decimal::from(SCRIP_PER_WAVE),
         &ref_key,
@@ -690,7 +690,7 @@ pub async fn settle_endless_reward(
                     .bind(amount as i64).bind(wallet).execute(db).await;
                 crate::handlers::ledger::insert_ledger_entry(
                     db, wallet, "battle_reward", rust_decimal::Decimal::from(amount), tx_hash.as_deref(), None,
-                    crate::services::chain_id::ChainId::Celo,
+                    CHAINID_GONE::Celo,
                 ).await;
                 tracing::info!("endless reward paid: {} wave{} +{} G${}",
                     wallet, wave, amount, if already_paid { " (reconciled)" } else { "" });
@@ -717,7 +717,7 @@ pub async fn settle_endless_reward(
 /// it gets topped up before payouts start failing on an empty pool.
 async fn warn_if_pool_low(chain: &crate::services::chain::ChainWriter) {
     let Some(pool) = chain.endless_pool_address() else { return };
-    if let Ok(bal) = chain.g_balance(pool).await {
+    if let Ok(bal) = chain.tally_balance(pool).await {
         let whole = (bal / ethers::types::U256::exp10(18)).as_u128() as u64;
         let warn = pool_warn_g();
         if whole < warn {

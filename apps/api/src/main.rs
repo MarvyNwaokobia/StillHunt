@@ -14,12 +14,11 @@ mod utils;
 
 pub struct AppState {
     pub db:                sqlx::PgPool,
-    pub rewards:           Option<services::rewards::RewardService>,
     pub chain:             Option<services::chain::ChainWriter>,
     /// The Avalanche C-Chain relay. `None` until the contracts are deployed and
     /// AVALANCHE_PRIVATE_KEY + AVALANCHE_GAME_RECORD_CONTRACT are set, which is
     /// harmless: nothing is written there and the Celo game is unaffected.
-    pub avalanche:         Option<services::avalanche::AvalancheWriter>,
+    pub avalanche:         Option<services::chain::ChainWriter>,
     pub battle_limiter:    services::rate_limiter::RateLimiter,
     pub game_server:       services::game_server::GameServerHandle,
     pub bot_fight_sessions: std::sync::Arc<DashMap<Uuid, services::battle::BotFightSession>>,
@@ -52,16 +51,12 @@ async fn main() -> anyhow::Result<()> {
     // A failure aborts boot on purpose (better than serving on a half-migrated schema).
     migrate::run(&db).await?;
 
-    let rewards = services::rewards::RewardService::from_env()
-        .map_err(|e| tracing::warn!("Reward service disabled: {}", e))
-        .ok();
-
     let chain = services::chain::ChainWriter::from_env();
     if chain.is_none() {
         tracing::info!("ChainWriter disabled (GAME_RECORD_CONTRACT not set)");
     }
 
-    let avalanche = services::avalanche::AvalancheWriter::from_env();
+    let avalanche = services::chain::ChainWriter::from_env();
     match &avalanche {
         None => tracing::info!(
             "Avalanche relay disabled (AVALANCHE_PRIVATE_KEY / AVALANCHE_GAME_RECORD_CONTRACT not set)"
@@ -141,7 +136,6 @@ async fn main() -> anyhow::Result<()> {
         App::new()
             .app_data(web::Data::new(AppState {
                 db:             db.clone(),
-                rewards:        rewards.clone(),
                 chain:          chain.clone(),
                 avalanche:      avalanche.clone(),
                 battle_limiter: services::rate_limiter::RateLimiter::new(10, 60),

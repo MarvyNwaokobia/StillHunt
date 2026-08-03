@@ -31,7 +31,7 @@ use serde::Serialize;
 use serde_json::json;
 use std::str::FromStr;
 
-use crate::services::chain_id::ChainId;
+use CHAINID_GONE;
 use crate::services::earnings;
 use crate::utils::{is_valid_wallet, normalize_wallet};
 use crate::AppState;
@@ -68,7 +68,7 @@ pub async fn get_claimable(state: web::Data<AppState>, path: web::Path<String>) 
     let chain = ChainId::Avalanche;
     let balance = earnings::balance(&state.db, &wallet, chain).await;
 
-    let (claimable, reason) = match state.avalanche.as_ref() {
+    let (claimable, reason) = match state.chain.as_ref() {
         None => (false, Some("Scrip payouts are not enabled yet.".to_string())),
         Some(av) if !av.can_mint() => {
             (false, Some("Scrip payouts are not configured yet.".to_string()))
@@ -105,7 +105,7 @@ pub async fn claim(state: web::Data<AppState>, path: web::Path<String>) -> HttpR
         return HttpResponse::BadRequest().json(json!({"error": "Invalid wallet address"}));
     }
 
-    let Some(av) = state.avalanche.as_ref().cloned() else {
+    let Some(av) = state.chain.as_ref().cloned() else {
         return HttpResponse::ServiceUnavailable()
             .json(json!({"error": "Scrip payouts are not enabled yet"}));
     };
@@ -152,7 +152,7 @@ pub async fn claim(state: web::Data<AppState>, path: web::Path<String>) -> HttpR
             .json(json!({"error": "Could not process that amount — nothing was charged"}));
     };
 
-    match av.mint_scrip(to, amount_wei).await {
+    match av.mint_tally(to, amount_wei).await {
         Ok(hash) => {
             let hash_str = format!("{:?}", hash);
             earnings::settle_claim(&state.db, open.id, &hash_str).await;
