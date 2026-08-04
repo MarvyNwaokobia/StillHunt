@@ -71,7 +71,7 @@ export const CLASS_DEFINITIONS: Record<CharacterClass, ClassDefinition> = {
     glowColor: 'rgba(59,130,246,0.5)',
     stats: { attack: 9, defense: 16, speed: 7 },
     weapon: 'Sword & Tower Shield',
-    special: 'Iron Fortress',
+    special: 'Drifter Fortress',
     specialDesc: 'Absorbs the next attack and reflects 50% back.',
     playStyle: 'Defensive — outlast and punish.',
   },

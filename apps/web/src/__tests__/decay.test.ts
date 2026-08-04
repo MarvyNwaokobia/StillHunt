@@ -64,26 +64,26 @@ describe('getDecayTimeRemaining', () => {
 
 describe('getRankDowngrade', () => {
   it('returns the rank below', () => {
-    expect(getRankDowngrade('Silver')).toBe('Bronze')
-    expect(getRankDowngrade('Gold')).toBe('Silver')
-    expect(getRankDowngrade('Platinum')).toBe('Gold')
-    expect(getRankDowngrade('Diamond')).toBe('Platinum')
+    expect(getRankDowngrade('Stalker')).toBe('Tracker')
+    expect(getRankDowngrade('Marksman')).toBe('Stalker')
+    expect(getRankDowngrade('Ranger')).toBe('Marksman')
+    expect(getRankDowngrade('Apex')).toBe('Ranger')
   })
 
-  it('returns null for Bronze (already lowest)', () => {
-    expect(getRankDowngrade('Bronze')).toBeNull()
+  it('returns null for Tracker (already lowest)', () => {
+    expect(getRankDowngrade('Tracker')).toBeNull()
   })
 })
 
 describe('getRankUpgrade', () => {
   it('returns the rank above', () => {
-    expect(getRankUpgrade('Bronze')).toBe('Silver')
-    expect(getRankUpgrade('Silver')).toBe('Gold')
-    expect(getRankUpgrade('Gold')).toBe('Platinum')
-    expect(getRankUpgrade('Platinum')).toBe('Diamond')
+    expect(getRankUpgrade('Tracker')).toBe('Stalker')
+    expect(getRankUpgrade('Stalker')).toBe('Marksman')
+    expect(getRankUpgrade('Marksman')).toBe('Ranger')
+    expect(getRankUpgrade('Ranger')).toBe('Apex')
   })
 
-  it('returns null for Diamond (already highest)', () => {
-    expect(getRankUpgrade('Diamond')).toBeNull()
+  it('returns null for Apex (already highest)', () => {
+    expect(getRankUpgrade('Apex')).toBeNull()
   })
 })

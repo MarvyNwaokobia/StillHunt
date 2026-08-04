@@ -1,12 +1,12 @@
-export const RANKS = ['Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond'] as const
+export const RANKS = ['Tracker', 'Stalker', 'Marksman', 'Ranger', 'Apex'] as const
 export const PLAY_STYLES = ['Wanderer', 'Fighter', 'Champion'] as const
 
 export const RANK_G_REWARD: Record<string, number> = {
-  Bronze: 10,
-  Silver: 20,
-  Gold: 40,
-  Platinum: 80,
-  Diamond: 150,
+  Tracker: 10,
+  Stalker: 20,
+  Marksman: 40,
+  Ranger: 80,
+  Apex: 150,
 }
 
 export const XP_PER_RANK = 1000

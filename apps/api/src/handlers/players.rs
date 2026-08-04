@@ -15,10 +15,10 @@ use crate::AppState;
 /// This endpoint is unauthenticated — anyone can PATCH any wallet — so it must never
 /// accept a field that decides progression or money. It previously took `rank`,
 /// `last_active`, `decay_status` and `decay_frozen_until`, which meant an
-/// unauthenticated caller could hand themselves Diamond (4 rank-ups' worth of G$),
+/// unauthenticated caller could hand themselves Apex (4 rank-ups' worth of G$),
 /// demote another player, or dodge decay forever:
 ///
-///     PATCH /players/0x<anyone> {"rank":"Diamond","last_active":"<now>"}
+///     PATCH /players/0x<anyone> {"rank":"Apex","last_active":"<now>"}
 ///
 /// No client ever sent any of them (the only PATCH bodies are username,
 /// character_customization, character_class/name/confirmed, and inventory `equipped`),
@@ -241,10 +241,10 @@ pub async fn decay_check(
     if new_status == "active" && player.decay_status != "active" {
         let _ = sqlx::query(
             "UPDATE players SET decay_status = $1, rank = CASE
-                WHEN rank = 'Diamond' THEN 'Platinum'
-                WHEN rank = 'Platinum' THEN 'Gold'
-                WHEN rank = 'Gold' THEN 'Silver'
-                WHEN rank = 'Silver' THEN 'Bronze'
+                WHEN rank = 'Apex' THEN 'Ranger'
+                WHEN rank = 'Ranger' THEN 'Marksman'
+                WHEN rank = 'Marksman' THEN 'Stalker'
+                WHEN rank = 'Stalker' THEN 'Tracker'
                 ELSE rank
              END WHERE wallet_address = $2",
         )
@@ -450,7 +450,7 @@ pub async fn create_player(
             rank, xp, attack_stat, defense_stat, speed_stat,
             g_earned_lifetime, last_active, decay_status, wins, losses, character_confirmed,
             magic_email, magic_issuer, edition
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Iron', 0, $9, $10, $11, 0, now(), 'none', 0, 0, true, $12, $13, $14)
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Drifter', 0, $9, $10, $11, 0, now(), 'none', 0, 0, true, $12, $13, $14)
          -- `edition` is deliberately ABSENT from this UPDATE list. It is written once,
          -- at signup, and is immutable thereafter. Letting it change here would undo
          -- the whole point of storing it: a player who signed up in MiniPay could
@@ -542,13 +542,13 @@ const LEADERBOARD_ACTIVE_HOURS: i64 = 72;
 pub async fn list_players(state: web::Data<AppState>) -> HttpResponse {
     // Sort by position on THE ladder, not a hand-written CASE. The old CASE still
     // spelled out the original five ranks, so the two tiers added later were wrong:
-    // Emerald, the second-HIGHEST rank, fell into the `ELSE` bucket and sorted below
-    // Silver, tied with Bronze and Iron. Deriving the order from RANK_LADDER means a
+    // Ghost, the second-HIGHEST rank, fell into the `ELSE` bucket and sorted below
+    // Stalker, tied with Tracker and Drifter. Deriving the order from RANK_LADDER means a
     // future tier is ordered correctly the moment it is added there.
     //
-    // prestige_level is the second key: past Diamond the rank name stops changing, so
-    // without it the game's most accomplished players (Diamond II, III…) sorted level
-    // with someone who had just arrived at Diamond, broken only by leftover bar XP.
+    // prestige_level is the second key: past Apex the rank name stops changing, so
+    // without it the game's most accomplished players (Apex II, III…) sorted level
+    // with someone who had just arrived at Apex, broken only by leftover bar XP.
     //
     // The array is built from a compile-time const of static strings, so the format!
     // carries no user input and cannot be injected into.

@@ -47,7 +47,7 @@ const basePlayer: Player = {
   display_name:            null,
   character_class:         'Berserker',
   character_customization: {},
-  rank:                    'Bronze',
+  rank:                    'Tracker',
   xp:                      250,
   attack_stat:             16,
   defense_stat:            7,
@@ -71,7 +71,7 @@ describe('PlayerCard', () => {
 
   it('renders rank badge', () => {
     render(<PlayerCard player={basePlayer} />)
-    expect(screen.getByText('BRONZE')).toBeTruthy()
+    expect(screen.getByText('TRACKER')).toBeTruthy()
   })
 
   it('renders class chip', () => {

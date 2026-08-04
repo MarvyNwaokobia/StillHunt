@@ -118,7 +118,7 @@ export default function DecayPanel({ walletAddress }: Props) {
       </div>
       <p className="text-xs text-slate-400 leading-relaxed mb-3">
         Your character has lost a rank, and will keep losing one for every 3 days you
-        stay away, down to Iron. Battle or complete a mission to stop the decay.
+        stay away, down to Drifter. Battle or complete a mission to stop the decay.
       </p>
 
       <button

@@ -83,6 +83,9 @@ const MIGRATIONS: &[(&str, &str)] = &[
     ("fix_decimal_columns.sql",   include_str!("../migrations/fix_decimal_columns.sql")),
     ("fix_ledger_categories.sql", include_str!("../migrations/fix_ledger_categories.sql")),
     ("fix_xp_cap.sql",            include_str!("../migrations/fix_xp_cap.sql")),
+    // LAST on purpose: a data migration that rewrites rows in tables the
+    // migrations above create. Running it earlier would hit a missing table.
+    ("rename_ranks.sql",        include_str!("../migrations/rename_ranks.sql")),
 ];
 
 /// Apply every migration not yet recorded, in order, each in its own transaction. Called

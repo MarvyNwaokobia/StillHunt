@@ -1,6 +1,6 @@
 export type Json = string | number | boolean | null | { [key: string]: Json } | Json[]
 
-export type Rank = 'Iron' | 'Bronze' | 'Silver' | 'Gold' | 'Platinum' | 'Emerald' | 'Diamond'
+export type Rank = 'Drifter' | 'Tracker' | 'Stalker' | 'Marksman' | 'Ranger' | 'Ghost' | 'Apex'
 export type PlayStyle = 'Wanderer' | 'Fighter' | 'Champion'
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary'
 export type ItemCategory = 'weapon' | 'shield' | 'booster' | 'cosmetic' | 'ammo' | 'attachment' | 'gear'
@@ -108,7 +108,7 @@ export interface Player {
   wins: number
   losses: number
   pve_level: number                            // highest PvE Campaign level cleared (0 = none)
-  prestige_level?: number                      // 0 until past Diamond; then Diamond I, II, III…
+  prestige_level?: number                      // 0 until past Apex; then Apex I, II, III…
   character_confirmed?: boolean                // false for chain-reconstructed players → confirm-class
 
   // Decay

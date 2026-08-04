@@ -59,7 +59,7 @@ export default function Navbar() {
         paddingRight: 'env(safe-area-inset-right, 0px)',
       }}
     >
-      {/* Gold accent line at very top */}
+      {/* Marksman accent line at very top */}
       <div className="h-px w-full" style={{
         background: classDef
           ? `linear-gradient(90deg, transparent 0%, ${classDef.accentColor}80 30%, ${classDef.accentColor} 50%, ${classDef.accentColor}80 70%, transparent 100%)`

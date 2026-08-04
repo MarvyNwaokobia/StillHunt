@@ -106,7 +106,7 @@ export const MARKETPLACE_CATALOG: readonly MarketplaceItem[] = [
   // ══════════════════════════════════════════════════════════════════════════
   {
     id: 'arm_berserker_helm',
-    name: 'Iron War Helm',
+    name: 'Drifter War Helm',
     category: 'Armor',
     subSlot: 'head',
     assetUrl: '/assets/meshes/armor/berserker/iron_war_helm.glb',
@@ -273,7 +273,7 @@ export const MARKETPLACE_CATALOG: readonly MarketplaceItem[] = [
   // ══════════════════════════════════════════════════════════════════════════
   {
     id: 'wep_iron_sword',
-    name: 'Iron Shortsword',
+    name: 'Drifter Shortsword',
     category: 'Weapons',
     subSlot: 'main_hand',
     assetUrl: '/assets/meshes/weapons/sentinel/iron_shortsword.glb',
@@ -284,7 +284,7 @@ export const MARKETPLACE_CATALOG: readonly MarketplaceItem[] = [
   },
   {
     id: 'wep_sentinel_shield',
-    name: 'Iron Tower Shield',
+    name: 'Drifter Tower Shield',
     category: 'Weapons',
     subSlot: 'off_hand',
     assetUrl: '/assets/meshes/weapons/sentinel/tower_shield.glb',

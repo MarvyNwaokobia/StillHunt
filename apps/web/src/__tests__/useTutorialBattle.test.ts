@@ -12,7 +12,7 @@ const mockPlayer: Player = {
   display_name:            null,
   character_class:         'Berserker',
   character_customization: {},
-  rank:                    'Bronze',
+  rank:                    'Tracker',
   xp:                      0,
   attack_stat:             16,
   defense_stat:            7,

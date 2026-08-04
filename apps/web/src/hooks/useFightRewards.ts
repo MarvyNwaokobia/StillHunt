@@ -14,7 +14,7 @@ export interface FightReward {
   gAwarded:      number
   bountyAwarded: number  // one-time first-clear G$ bounty (0 unless a new op cleared)
   firstClear:    boolean
-  prestiged:     boolean // true when this fight prestiged past Diamond
+  prestiged:     boolean // true when this fight prestiged past Apex
   prestigeLevel: number  // prestige level after this fight
 }
 
@@ -129,7 +129,7 @@ export function useFightRewards() {
         if (data.ranked_up && data.new_rank) {
           storeUpdates.rank = data.new_rank
         }
-        // Prestige leaves rank as Diamond but bumps the prestige counter — the server
+        // Prestige leaves rank as Apex but bumps the prestige counter — the server
         // is authoritative, so mirror whatever level it reports.
         if (typeof data.prestige_level === 'number') {
           storeUpdates.prestige_level = data.prestige_level

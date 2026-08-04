@@ -1,4 +1,4 @@
-export type Rank = 'Bronze' | 'Silver' | 'Gold' | 'Platinum' | 'Diamond'
+export type Rank = 'Tracker' | 'Stalker' | 'Marksman' | 'Ranger' | 'Apex'
 export type PlayStyle = 'Wanderer' | 'Fighter' | 'Champion'
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary'
 export type ItemCategory = 'weapon' | 'shield' | 'booster'

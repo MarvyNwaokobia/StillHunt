@@ -101,7 +101,7 @@ export default function ClaimCard({ walletAddress }: { walletAddress: string | u
         <Coins size={18} className="text-slate-600 shrink-0 mt-1" />
       </div>
 
-      {/* Gold on black, set inline and tapped-scaled to match the Transfer Out
+      {/* Marksman on black, set inline and tapped-scaled to match the Transfer Out
           button directly below it on this page. There is no `stillhunt-accent` token —
           the theme's gold is `hunt-gold` (#eab308) — and a class that does not
           exist renders a button with no background at all: dark text on a dark

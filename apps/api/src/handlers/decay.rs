@@ -10,12 +10,12 @@ const WARN_AFTER_HOURS: i64 = 48;
 /// Idle time before the first rank is lost (the grace period).
 const DECAY_AFTER_HOURS: i64 = 72;
 /// A further rank is lost for every this many hours of CONTINUED absence. Rank is the
-/// visible cost of walking away: keep going and you keep sliding, all the way to Iron.
+/// visible cost of walking away: keep going and you keep sliding, all the way to Drifter.
 const DECAY_STEP_HOURS: i64 = 72;
 
 /// Build the ladder as a SQL array literal from the one Rust const that defines rank
 /// order. Written out by hand, this list has now been wrong in three separate places
-/// (the leaderboard sort, `next_rank`, and this sweep, which silently skipped Emerald
+/// (the leaderboard sort, `next_rank`, and this sweep, which silently skipped Ghost
 /// so the second-highest rank could never decay at all). Static strings only, so
 /// nothing user-supplied reaches the query.
 fn ladder_sql() -> String {
@@ -70,10 +70,10 @@ pub async fn run_decay_sweep(state: web::Data<AppState>, req: HttpRequest) -> Ht
     //    itself set that status, so everyone dropped exactly one rank and was then
     //    immune forever. The gate is now `last_decay_at`, so absence keeps costing.
     //  • It walks the REAL ladder. The old hand-written CASE listed only the original
-    //    five ranks, so Emerald (second-highest) and Bronze both fell through its ELSE
+    //    five ranks, so Ghost (second-highest) and Tracker both fell through its ELSE
     //    and never decayed. array_position over RANK_LADDER cannot miss a tier.
-    //  • It unwinds PRESTIGE first. Past Diamond the rank name stops changing, so a
-    //    Diamond III would otherwise drop straight to Emerald and skip three levels of
+    //  • It unwinds PRESTIGE first. Past Apex the rank name stops changing, so a
+    //    Apex III would otherwise drop straight to Ghost and skip three levels of
     //    earned progress. Prestige is spent one level at a time before rank moves.
     //
     // XP resets on a demotion: you lost the tier, you refill its bar. Without this a
@@ -133,27 +133,27 @@ mod tests {
     #[test]
     fn the_decay_ladder_covers_every_rank() {
         let sql = ladder_sql();
-        // Every tier must appear. The old hand-written CASE was missing Emerald, so the
-        // second-highest rank could never decay, and missing Bronze, so Bronze never
-        // reached Iron. Deriving from RANK_LADDER makes an omission impossible, and this
+        // Every tier must appear. The old hand-written CASE was missing Ghost, so the
+        // second-highest rank could never decay, and missing Tracker, so Tracker never
+        // reached Drifter. Deriving from RANK_LADDER makes an omission impossible, and this
         // asserts that derivation actually happened.
         for rank in RANK_LADDER {
             assert!(sql.contains(&format!("'{}'", rank)), "{} missing from decay ladder", rank);
         }
         assert!(sql.starts_with("ARRAY[") && sql.ends_with("]::text[]"));
         // Ladder order is preserved, since array_position depends on it.
-        let iron = sql.find("'Iron'").unwrap();
-        let silver = sql.find("'Silver'").unwrap();
-        let diamond = sql.find("'Diamond'").unwrap();
+        let iron = sql.find("'Drifter'").unwrap();
+        let silver = sql.find("'Stalker'").unwrap();
+        let diamond = sql.find("'Apex'").unwrap();
         assert!(iron < silver && silver < diamond);
     }
 
     #[test]
     fn the_floor_guard_matches_the_bottom_of_the_ladder() {
         // The sweep skips rows already at the floor by comparing against RANK_LADDER[0].
-        // If the ladder ever gained a tier BELOW Iron, that guard has to follow it, and
+        // If the ladder ever gained a tier BELOW Drifter, that guard has to follow it, and
         // it will, because it is the same array.
-        assert_eq!(RANK_LADDER[0], "Iron");
+        assert_eq!(RANK_LADDER[0], "Drifter");
     }
 
     #[test]

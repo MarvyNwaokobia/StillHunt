@@ -12,7 +12,7 @@ import AvatarGenerator, { type ArmorStyle } from '@/components/onboarding/Avatar
 
 const SKIN_TONES = ['#fde8d5','#f5c9a0','#d4935a','#a0612a','#7b4012','#3d1f0a']
 const HAIR_COLORS = ['#0a0805','#3d2210','#6b2a12','#c8901a','#c8c0a8','#e8e4f0']
-const PREFIXES = ['Iron','Dark','Storm','Ash','Void','Flame','Shadow','Silver','Crimson','Frost','Thunder','Ember','Blood','Death','War']
+const PREFIXES = ['Drifter','Dark','Storm','Ash','Void','Flame','Shadow','Stalker','Crimson','Frost','Thunder','Ember','Blood','Death','War']
 const SUFFIXES = ['Blade','Fist','Heart','Walker','Strike','Guard','Born','Wolf','Hawk','Bane','Forge','Rift','Claw','Rage','Fire']
 
 function deterministicName(wallet: string) {
@@ -198,7 +198,7 @@ export default function CharacterCreation({ walletAddress, initialClass = 'Berse
       display_name: null,
       character_class: selectedClass,
       character_customization: { skin: skinTone, hair: `${hairStyle}:${hairColor}`, gender, avatar_url: portraitUrl ?? undefined, armor_style: armorStyle },
-      rank: 'Bronze' as const,
+      rank: 'Tracker' as const,
       xp: 0,
       attack_stat: stats.attack,
       defense_stat: stats.defense,

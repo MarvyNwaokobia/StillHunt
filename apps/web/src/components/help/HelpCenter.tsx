@@ -42,7 +42,7 @@ const FAQ: Category[] = [
     title: 'Earning & ranks',
     items: [
       { q: 'How do I earn G$ by playing?', a: 'Three ways: clearing a campaign operation for the first time pays 10 G$, every wave you clear in Endless pays 10 G$, and every rank-up pays 200 G$. Daily UBI is on top of all that.' },
-      { q: 'How do ranks work?', a: 'The ladder is Iron → Bronze → Silver → Gold → Platinum → Emerald → Diamond, and each rank-up pays 200 G$. Later ranks take more XP than earlier ones, so the climb gets longer as you go. Past Diamond you prestige (Diamond II, III, and up). Your XP never stops counting or paying.' },
+      { q: 'How do ranks work?', a: 'The ladder is Drifter → Tracker → Stalker → Marksman → Ranger → Ghost → Apex, and each rank-up pays 200 G$. Later ranks take more XP than earlier ones, so the climb gets longer as you go. Past Apex you prestige (Apex II, III, and up). Your XP never stops counting or paying.' },
       { q: 'How much XP do fights give?', a: 'Non-campaign fights: Win = +100 XP, Loss = +30 XP. Campaign operations have their own XP per op. You never walk away with nothing.' },
       { q: 'Why did replaying an operation pay no G$?', a: 'The first-clear bounty pays once per operation, the first time you clear it. Replays still give XP, but not the bounty again. To earn more op bounties, clear the next operation.' },
     ],
@@ -80,7 +80,7 @@ const WALKTHROUGH: { step: string; title: string; body: string }[] = [
   { step: '2', title: 'Verify', body: "A quick verification, under 60 seconds, free. It confirms you're a real, unique person, and that's the integrity the game stands on. It also unlocks your daily free G$." },
   { step: '3', title: 'Forge your warrior', body: 'Pick a class: Berserker (raw power), Sentinel (defense + counters), or Phantom (speed, strikes first). Then name your warrior and grab an @username.' },
   { step: '4', title: 'Fight', body: 'On the FIGHT tab: Campaign (15 first-person operations across Ashfall, the Proving Ground and the Rift), Challenge a Player, Live PvP, and Endless survival. Win = +100 XP, Loss = +30 XP.' },
-  { step: '5', title: 'XP & ranks', body: 'XP ranks you up, and every rank-up pays 200 G$. Iron → Bronze → Silver → Gold → Platinum → Emerald → Diamond, then prestige past Diamond. Later ranks cost more XP than earlier ones. Rank up and you join that tier’s reward pool.' },
+  { step: '5', title: 'XP & ranks', body: 'XP ranks you up, and every rank-up pays 200 G$. Drifter → Tracker → Stalker → Marksman → Ranger → Ghost → Apex, then prestige past Apex. Later ranks cost more XP than earlier ones. Rank up and you join that tier’s reward pool.' },
   { step: '6', title: 'Armoury', body: 'Spend G$ on guns, ammo, attachments, field kit, shields and boosters. Every item is on-chain, so you own it. Player Listings let you trade gear with other players.' },
   { step: '7', title: 'Bank', body: 'Profile → Bank is where the money lives: your balance and ledger, the daily G$ claim, your rank reward pool, and Transfer G$ Out to cash out to any wallet.' },
 ]

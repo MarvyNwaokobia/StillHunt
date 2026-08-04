@@ -4,7 +4,7 @@ import RankBadge from '@/components/player-card/RankBadge'
 import { RANK_DEFINITIONS } from '@/lib/ranks'
 import type { Rank } from '@/types/database'
 
-const RANKS: Rank[] = ['Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond']
+const RANKS: Rank[] = ['Tracker', 'Stalker', 'Marksman', 'Ranger', 'Apex']
 
 describe('RankBadge', () => {
   it.each(RANKS)('renders %s label text', (rank) => {
@@ -12,14 +12,14 @@ describe('RankBadge', () => {
     expect(screen.getByText(RANK_DEFINITIONS[rank].label)).toBeTruthy()
   })
 
-  it('applies drop-shadow filter at Gold+', () => {
-    const { container: goldContainer } = render(<RankBadge rank="Gold" />)
+  it('applies drop-shadow filter at Marksman+', () => {
+    const { container: goldContainer } = render(<RankBadge rank="Marksman" />)
     const badge = goldContainer.firstChild as HTMLElement
     expect(badge.style.filter).toContain('drop-shadow')
   })
 
-  it('does not apply filter at Bronze/Silver', () => {
-    const { container: bronzeContainer } = render(<RankBadge rank="Bronze" />)
+  it('does not apply filter at Tracker/Stalker', () => {
+    const { container: bronzeContainer } = render(<RankBadge rank="Tracker" />)
     const badge = bronzeContainer.firstChild as HTMLElement
     expect(badge.style.filter).toBeFalsy()
   })
