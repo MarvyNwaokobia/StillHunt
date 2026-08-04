@@ -19,7 +19,7 @@ export type AuthSource = 'magic' | 'wallet'
 //               connection is an implementation detail, so they share a source.
 //
 // Magic wins if both are somehow live: it's the account the player's rank,
-// items and G$ hang off.
+// items and TALLY hang off.
 export function useResolvedAuth() {
   const magic = useMagicAuthContext()
   const web3authWallet = useWeb3AuthWallet()

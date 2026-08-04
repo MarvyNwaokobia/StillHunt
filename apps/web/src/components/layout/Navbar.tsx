@@ -120,7 +120,7 @@ export default function Navbar() {
                 border: '1px solid rgba(234,179,8,0.2)',
               }}
             >
-              <span className="text-[9px] font-bold text-amber-500/60 uppercase tracking-wider">G$</span>
+              <span className="text-[9px] font-bold text-amber-500/60 uppercase tracking-wider">TALLY</span>
               <span className="text-xs font-black text-amber-400">{gBalance}</span>
             </div>
           )}

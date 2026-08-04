@@ -94,7 +94,7 @@ export default function SeasonalPage() {
     setPhase('run');
   }, [season, progress]);
 
-  // A wave was cleared: the server credits it, pays the G$ and records the win.
+  // A wave was cleared: the server credits it, pays the TALLY and records the win.
   const onWaveCleared = useCallback(() => { void progress.clearWave(); }, [progress]);
 
   // Death records the loss on chain. It does NOT end the run — the scene puts the
@@ -192,7 +192,7 @@ export default function SeasonalPage() {
             <div className="flex flex-wrap gap-3 mb-6">
               <div className="px-4 py-2 rounded-xl border" style={{ borderColor: 'rgba(234,179,8,0.3)', background: 'rgba(234,179,8,0.06)' }}>
                 <p className="text-[10px] uppercase tracking-widest text-amber-500/70 font-bold">Prize pool</p>
-                <p className="font-display font-black text-amber-400 text-lg">{season.prize_pool_g.toLocaleString()} G$</p>
+                <p className="font-display font-black text-amber-400 text-lg">{season.prize_pool_g.toLocaleString()} TALLY</p>
               </div>
               <div className="px-4 py-2 rounded-xl border" style={{ borderColor: 'rgba(42,42,58,0.8)' }}>
                 <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Your best</p>
@@ -207,7 +207,7 @@ export default function SeasonalPage() {
               Every player runs the same generated compound. Leave whenever you like and
               come back on the wave you left — dying only sends you to the start of your
               current wave, never back to the beginning. The board ranks WAVES COMPLETED.
-              Top 10 are paid 50,000 G$ each when the season closes.
+              Top 10 are paid 50,000 TALLY each when the season closes.
             </p>
 
             <button

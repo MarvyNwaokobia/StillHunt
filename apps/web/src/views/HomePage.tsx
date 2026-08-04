@@ -13,7 +13,7 @@ import LoadingScreen from '@/components/ui/LoadingScreen'
 import { CLASS_DEFINITIONS } from '@/lib/classes'
 import { xpForNextRank, nextRankReward } from '@/lib/constants'
 import { rankLabel } from '@/lib/ranks'
-import { formatGDollarNumber } from '@/utils/format'
+import { formatTallyNumber } from '@/utils/format'
 
 const CLASS_SOLO: Record<string, string> = {
   Berserker: '/characters/Berserkers.webp',
@@ -164,8 +164,8 @@ export default function HomePage() {
               </div>
             ))}
             <div className="ml-auto flex items-center gap-1">
-              <span className="text-[8px] text-slate-600 uppercase">G$</span>
-              <span className="text-xs font-black text-amber-400">{formatGDollarNumber(player.g_earned_lifetime)}</span>
+              <span className="text-[8px] text-slate-600 uppercase">TALLY</span>
+              <span className="text-xs font-black text-amber-400">{formatTallyNumber(player.g_earned_lifetime)}</span>
             </div>
           </div>
         </div>
@@ -192,7 +192,7 @@ export default function HomePage() {
           <p className="text-white font-bold text-sm">
             {player.wins}W <span className="text-slate-600 font-normal mx-1">/</span> {player.losses}L
             <span className="text-slate-500 text-xs font-normal ml-3">
-              Next rank reward: <span className="text-amber-400 font-bold">{formatGDollarNumber(nextReward)}</span>
+              Next rank reward: <span className="text-amber-400 font-bold">{formatTallyNumber(nextReward)}</span>
             </span>
           </p>
         </motion.div>

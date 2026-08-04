@@ -310,7 +310,7 @@ function seraphLmg(): THREE.Group {
 /**
  * EMBER HALO — the exotic. Ceramic-white shell, gold furniture, and a ring of ember
  * light around the muzzle that gives it its name. Deliberately the only gun with a
- * bright body: at 10,000 G$ it should be recognisable across the room.
+ * bright body: at 10,000 TALLY it should be recognisable across the room.
  */
 function emberHalo(): THREE.Group {
   const g = new THREE.Group();

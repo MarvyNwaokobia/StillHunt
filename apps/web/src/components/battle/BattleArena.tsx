@@ -23,7 +23,7 @@ import type { CharacterClass } from '@/lib/classes'
 import { RANK_DEFINITIONS } from '@/lib/ranks'
 import RankAura from '@/components/ui/RankAura'
 import { xpForNextRank } from '@/lib/constants'
-import { formatGDollarNumber } from '@/utils/format'
+import { formatTallyNumber } from '@/utils/format'
 
 interface Props { player: Player; walletAddress: string; challengeTarget?: string }
 
@@ -461,7 +461,7 @@ export default function BattleArena({ player, walletAddress, challengeTarget }: 
                   ✦ RANK UP → {result.newRank}
                 </p>
               </RankAura>
-              <p className="text-slate-400 text-xs mt-1">{formatGDollarNumber(result.gAwarded)} G$ earned</p>
+              <p className="text-slate-400 text-xs mt-1">{formatTallyNumber(result.gAwarded)} TALLY earned</p>
             </motion.div>
           )}
 

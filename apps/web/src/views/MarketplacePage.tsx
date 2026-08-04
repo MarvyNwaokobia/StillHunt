@@ -49,7 +49,7 @@ export default function MarketplacePage() {
             <div className="flex items-center justify-between px-4 py-3 rounded-xl"
               style={{ background: 'rgba(234,179,8,0.06)', border: '1px solid rgba(234,179,8,0.15)' }}>
               <p className="text-[10px] uppercase tracking-widest font-bold text-amber-500/60">Your Balance</p>
-              <p className="font-black text-amber-400 text-xl leading-tight">{gBalance} <span className="text-sm font-bold">G$</span></p>
+              <p className="font-black text-amber-400 text-xl leading-tight">{gBalance} <span className="text-sm font-bold">TALLY</span></p>
             </div>
           )}
         </div>

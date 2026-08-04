@@ -240,7 +240,7 @@ export async function renderCardPortrait(walletAddress: string): Promise<ImageRe
                 </div>
               )}
               <div style={{ display: 'flex', fontSize: 30, color: '#eab308', fontWeight: 700 }}>
-                {compactG(earned)} G$ earned
+                {compactG(earned)} TALLY earned
               </div>
             </div>
           </div>
@@ -289,7 +289,7 @@ export async function renderCardPortrait(walletAddress: string): Promise<ImageRe
               color: '#4a5462',
             }}
           >
-            One human. One fighter. Earn real G$ on Celo.
+            One human. One fighter. Earn real TALLY on Celo.
           </div>
 
           {/* Footer */}

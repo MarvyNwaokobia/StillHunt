@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Swords, Bot, Crosshair, ExternalLink } from 'lucide-react'
-import { formatGDollarNumber } from '@/utils/format'
+import { formatTallyNumber } from '@/utils/format'
 import { ChainBadge } from '@/components/ui/ChainBadge'
 import { CAMPAIGN } from '@/engine/fps/campaign'
 
@@ -20,7 +20,7 @@ interface BattleRow {
   created_at: string
   game_record_tx: string | null
   rounds_data?: { kind?: string; level?: number; won?: boolean } | unknown
-  /** REAL G$ this fight paid (the one-time first-clear bounty). 0 for a replay. */
+  /** REAL TALLY this fight paid (the one-time first-clear bounty). 0 for a replay. */
   g_awarded?: number
   /**
    * Which mode wrote this row. An `endless` row is NOT a defeat — dying is how an
@@ -195,7 +195,7 @@ export default function BattleHistory({ walletAddress }: Props) {
                 </p>
                 {gEarned > 0 && (
                   <p className="text-[10px] font-bold text-amber-400">
-                    +{formatGDollarNumber(gEarned)} G$
+                    +{formatTallyNumber(gEarned)} TALLY
                     <span className="text-slate-600 font-normal ml-1">first clear</span>
                   </p>
                 )}
@@ -210,7 +210,7 @@ export default function BattleHistory({ walletAddress }: Props) {
         })}
       </div>
 
-      {/* Lifetime G$ summary */}
+      {/* Lifetime TALLY summary */}
       <div className="mt-4 pt-4 border-t border-hunt-border flex items-center justify-between">
         {/* Counts only rows that are actually a win on the player's record. An
             Endless row is excluded for the same reason it is not drawn as a loss:

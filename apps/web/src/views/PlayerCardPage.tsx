@@ -12,7 +12,7 @@ import type { Player } from '@/types'
 import PlayerCard from '@/components/player-card/PlayerCard'
 import LoadingScreen from '@/components/ui/LoadingScreen'
 import { RANK_COLORS } from '@/lib/constants'
-import { formatGDollarNumber } from '@/utils/format'
+import { formatTallyNumber } from '@/utils/format'
 
 export default function PlayerCardPage() {
   const params = useParams()
@@ -163,7 +163,7 @@ export default function PlayerCardPage() {
           <p className="text-slate-500 text-sm">
             <span className="text-hunt-gold font-bold">{player.character_name}</span> has earned{' '}
             <span className="text-hunt-gold font-bold">
-              {formatGDollarNumber(player.g_earned_lifetime)} G$
+              {formatTallyNumber(player.g_earned_lifetime)} TALLY
             </span>{' '}
             playing StillHunt.
           </p>
@@ -195,7 +195,7 @@ export default function PlayerCardPage() {
           <p className="text-[11px] text-slate-600 -mt-1">
             {signedIn
               ? 'Back to your own warrior'
-              : 'Create your character, fight, and earn real G$ on Celo.'}
+              : 'Create your character, fight, and earn real TALLY on Celo.'}
           </p>
 
           {/* Action row */}

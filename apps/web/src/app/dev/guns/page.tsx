@@ -59,7 +59,7 @@ export default function GunShowcasePage() {
               <div style={{ padding: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                   <span style={{ fontWeight: 900, fontSize: 18 }}>{s.name}</span>
-                  <span style={{ color: '#eab308', fontWeight: 800 }}>{g.price.toLocaleString()} G$</span>
+                  <span style={{ color: '#eab308', fontWeight: 800 }}>{g.price.toLocaleString()} TALLY</span>
                 </div>
                 <p style={{ color: '#64748b', fontSize: 12, margin: '4px 0 8px' }}>
                   TIER {s.tier} · {gunDps(s).toFixed(0)} DPS

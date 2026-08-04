@@ -87,7 +87,7 @@ export default function BattlePage() {
           <div className="flex-1 min-w-0">
             <p className="font-display font-black text-white text-xl group-hover:text-amber-400 transition-colors">Campaign</p>
             <p className="text-slate-500 text-sm mt-0.5">
-              First-person operations · breach, clear, extract · earn XP &amp; G$
+              First-person operations · breach, clear, extract · earn XP &amp; TALLY
             </p>
           </div>
           <ChevronRight size={16} className="shrink-0 text-slate-700 group-hover:text-white transition-colors" />
@@ -148,7 +148,7 @@ export default function BattlePage() {
                 {/* Says it moves real money on the card, not once you are inside. */}
                 <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
                   style={{ background: 'rgba(234,179,8,0.15)', color: '#eab308' }}>
-                  Stakes G$
+                  Stakes TALLY
                 </span>
               </div>
               <p className="text-slate-500 text-sm mt-0.5">Both fighters run the same map · one life · higher score takes the pot</p>

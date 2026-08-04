@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 import type { Item } from '@/types'
-import { formatCountdown, formatGDollarNumber } from '@/utils/format'
+import { formatCountdown, formatTallyNumber } from '@/utils/format'
 import { usePurchaseItem } from '@/hooks/useMarketplace'
 import { usePlayerStore } from '@/stores/usePlayerStore'
 import { gunIdFromItemId } from './GunIcons'
@@ -70,8 +70,8 @@ export default function LimitedItemBanner({ item, walletAddress }: Props) {
     } catch (err) {
       if (isUserRejection(err)) {
         setShowConfirm(false)
-      } else if (err instanceof Error && err.message === 'Insufficient G$ balance') {
-        setError('You don\'t have enough G$ to buy this item.')
+      } else if (err instanceof Error && err.message === 'Insufficient TALLY balance') {
+        setError('You don\'t have enough TALLY to buy this item.')
       } else {
         setError('Purchase could not be completed. Please try again.')
         console.error('[Purchase]', err)
@@ -119,7 +119,7 @@ export default function LimitedItemBanner({ item, walletAddress }: Props) {
 
             <div className="flex items-center gap-4 flex-wrap">
               <span className="font-bold text-hunt-gold text-lg">
-                {formatGDollarNumber(item.price)} G$
+                {formatTallyNumber(item.price)} TALLY
               </span>
             </div>
             {(() => {
@@ -235,7 +235,7 @@ export default function LimitedItemBanner({ item, walletAddress }: Props) {
               {/* Price row */}
               <div className="flex items-center justify-between py-2 border-t" style={{ borderColor: '#2a2a3a' }}>
                 <span className="text-slate-400 text-sm">Total</span>
-                <span className="font-black text-hunt-gold text-lg">{formatGDollarNumber(item.price)} G$</span>
+                <span className="font-black text-hunt-gold text-lg">{formatTallyNumber(item.price)} TALLY</span>
               </div>
 
               {error && <p className="text-red-400 text-xs -mt-2">{error}</p>}

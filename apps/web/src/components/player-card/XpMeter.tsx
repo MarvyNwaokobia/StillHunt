@@ -70,7 +70,7 @@ export default function XpMeter({ xp, max, rank }: Props) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
         >
-          ✦ Rank up ready — collect your G$!
+          ✦ Rank up ready — collect your TALLY!
         </motion.p>
       )}
     </div>

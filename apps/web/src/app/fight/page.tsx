@@ -75,7 +75,7 @@ function FightInner() {
 
   // Each op opens a server-authoritative fight session as it BEGINS (the token that
   // fixes wallet + level + start time server-side), then records the win on CLEAR.
-  // The backend applies the real XP → rank → G$ and advances the PvE level. If the
+  // The backend applies the real XP → rank → TALLY and advances the PvE level. If the
   // player isn't signed in, both are graceful no-ops (the game still plays).
   // Returns a promise that resolves TRUE once a server session is confirmed for this op
   // (or the player is signed out). The scene gates the fight on it — a FALSE shows a
@@ -84,7 +84,7 @@ function FightInner() {
     (level: number) => startFight(level).catch(() => false),
     [startFight],
   );
-  // Returns the SERVER-authoritative reward (real XP / rank-up / G$) so the scene can
+  // Returns the SERVER-authoritative reward (real XP / rank-up / TALLY) so the scene can
   // show the truth on the debrief. The per-run kills/headshots feed the capped skill
   // bonus (the server bounds them, so an inflated count can't mint XP).
   const onOpCleared = useCallback(

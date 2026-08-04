@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Medal } from 'lucide-react'
 
 import type { Player } from '@/types'
-import { formatGDollarNumber } from '@/utils/format'
+import { formatTallyNumber } from '@/utils/format'
 import { RANK_COLORS, xpForNextRank } from '@/lib/constants'
 import { rankLabel } from '@/lib/ranks'
 
@@ -141,7 +141,7 @@ export default function LeaderboardTable({ currentWallet }: Props) {
 
                 {/* Stats */}
                 <div className="text-right hidden sm:flex flex-col gap-0.5 shrink-0">
-                  <p className="text-xs font-black text-amber-400">{formatGDollarNumber(player.g_earned_lifetime)}</p>
+                  <p className="text-xs font-black text-amber-400">{formatTallyNumber(player.g_earned_lifetime)}</p>
                   <p className="text-[9px] text-slate-600">
                     <span className="text-green-500 font-bold">{player.wins}W</span>
                     <span className="mx-0.5 text-slate-700">/</span>

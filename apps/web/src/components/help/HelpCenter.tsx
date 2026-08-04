@@ -15,58 +15,58 @@ const FAQ: Category[] = [
   {
     title: 'Getting started',
     items: [
-      { q: 'What is StillHunt?', a: 'A first-person tactical shooter where the fighting actually pays. Breach compounds, clear rooms, extract. Every kill earns XP, every rank earns G$, and that G$ is real money in your wallet you can spend or send anywhere.' },
+      { q: 'What is StillHunt?', a: 'A first-person tactical shooter where the fighting actually pays. Breach compounds, clear rooms, extract. Every kill earns XP, every rank earns TALLY, and that TALLY is real money in your wallet you can spend or send anywhere.' },
       { q: 'How do I sign in?', a: 'Tap ENTER STILLHUNT. Three ways in: Continue with Google (easiest: one tap and we make the wallet for you), Continue with Email (we send a code), or Connect a wallet (MetaMask or similar). Not sure? Use Google.' },
-      { q: 'Do I need to know crypto?', a: 'No. Sign in with Google and never think about it. A wallet is created for you behind the scenes. Crypto only comes up if you choose to send your G$ out to another wallet.' },
-      { q: 'What is G$?', a: 'G$ (GoodDollar) is real money on the Celo network. You earn it by playing, claim it free every day, spend it in the Armoury, or send it out to any wallet.' },
+      { q: 'Do I need to know crypto?', a: 'No. Sign in with Google and never think about it. A wallet is created for you behind the scenes. Crypto only comes up if you choose to send your TALLY out to another wallet.' },
+      { q: 'What is TALLY?', a: 'TALLY (GoodDollar) is real money on the Celo network. You earn it by playing, claim it free every day, spend it in the Armoury, or send it out to any wallet.' },
     ],
   },
   {
     title: 'Verification',
     items: [
       { q: 'Why do I have to verify?', a: 'StillHunt pays real money, so every player has to be a real, unique person, otherwise bots and farmed accounts would drain the rewards meant for real players. That integrity is what the whole game stands on. One human, one warrior.' },
-      { q: 'What is the verification?', a: 'A quick GoodDollar identity check. Under 60 seconds, free. Your data stays with GoodDollar, not with us. Verifying also unlocks your daily free G$ claim.' },
+      { q: 'What is the verification?', a: 'A quick GoodDollar identity check. Under 60 seconds, free. Your data stays with GoodDollar, not with us. Verifying also unlocks your daily free TALLY claim.' },
       { q: 'Why am I being asked to verify again?', a: "Verification is run by GoodDollar, not StillHunt. We only ever show you what GoodDollar reports. If you're prompted to verify again, it's because GoodDollar's system currently shows your wallet needs it. If this keeps happening, message us on Telegram with your wallet and we'll look into it." },
       { q: 'I already verified, but the app still says verify.', a: "Try the Verify button once more; an already-verified wallet passes straight through. If it persists, it's coming from GoodDollar's side. Reach out on Telegram and we'll investigate your specific wallet." },
     ],
   },
   {
-    title: 'Daily G$ (free UBI)',
+    title: 'Daily TALLY (free UBI)',
     items: [
-      { q: 'What is the daily G$?', a: "GoodDollar UBI: free G$ you can claim every day, just for being verified. It's separate from what you earn playing." },
-      { q: 'Where do I claim it?', a: 'Profile → Bank → Daily G$. Tap it once a day.' },
+      { q: 'What is the daily TALLY?', a: "GoodDollar UBI: free TALLY you can claim every day, just for being verified. It's separate from what you earn playing." },
+      { q: 'Where do I claim it?', a: 'Profile → Bank → Daily TALLY. Tap it once a day.' },
       { q: 'When can I claim again?', a: "Once per day. After you claim, the Bank shows the next time you can claim, and that time comes straight from GoodDollar, we don't guess it." },
     ],
   },
   {
     title: 'Earning & ranks',
     items: [
-      { q: 'How do I earn G$ by playing?', a: 'Three ways: clearing a campaign operation for the first time pays 10 G$, every wave you clear in Endless pays 10 G$, and every rank-up pays 200 G$. Daily UBI is on top of all that.' },
-      { q: 'How do ranks work?', a: 'The ladder is Drifter → Tracker → Stalker → Marksman → Ranger → Ghost → Apex, and each rank-up pays 200 G$. Later ranks take more XP than earlier ones, so the climb gets longer as you go. Past Apex you prestige (Apex II, III, and up). Your XP never stops counting or paying.' },
+      { q: 'How do I earn TALLY by playing?', a: 'Three ways: clearing a campaign operation for the first time pays 10 TALLY, every wave you clear in Endless pays 10 TALLY, and every rank-up pays 200 TALLY. Daily UBI is on top of all that.' },
+      { q: 'How do ranks work?', a: 'The ladder is Drifter → Tracker → Stalker → Marksman → Ranger → Ghost → Apex, and each rank-up pays 200 TALLY. Later ranks take more XP than earlier ones, so the climb gets longer as you go. Past Apex you prestige (Apex II, III, and up). Your XP never stops counting or paying.' },
       { q: 'How much XP do fights give?', a: 'Non-campaign fights: Win = +100 XP, Loss = +30 XP. Campaign operations have their own XP per op. You never walk away with nothing.' },
-      { q: 'Why did replaying an operation pay no G$?', a: 'The first-clear bounty pays once per operation, the first time you clear it. Replays still give XP, but not the bounty again. To earn more op bounties, clear the next operation.' },
+      { q: 'Why did replaying an operation pay no TALLY?', a: 'The first-clear bounty pays once per operation, the first time you clear it. Replays still give XP, but not the bounty again. To earn more op bounties, clear the next operation.' },
     ],
   },
   {
     title: 'Armoury (marketplace)',
     items: [
-      { q: 'What can I buy?', a: 'Guns, ammo, attachments, field kit, shields and boosters, all with your G$. Every item is on-chain, so you genuinely own it.' },
-      { q: 'Can I buy and sell with other players?', a: "Yes. Scroll past the shop to Player Listings: buy another player's gear, or list your own and make G$ off it." },
+      { q: 'What can I buy?', a: 'Guns, ammo, attachments, field kit, shields and boosters, all with your TALLY. Every item is on-chain, so you genuinely own it.' },
+      { q: 'Can I buy and sell with other players?', a: "Yes. Scroll past the shop to Player Listings: buy another player's gear, or list your own and make TALLY off it." },
       { q: 'Does gear matter?', a: 'Yes. Before you deploy on an operation you pick your loadout from what you own, so what you buy changes how you fight. Buy a better gun before the Rift. You will want it.' },
     ],
   },
   {
     title: 'Bank & cashing out',
     items: [
-      { q: 'Where is my money?', a: 'Profile → Bank. Your G$ balance, a full ledger (earned from UBI, earned from gameplay, spent in the market, sent out), the daily claim, and Transfer G$ Out.' },
-      { q: 'How do I send my G$ out?', a: 'Bank → Transfer G$ Out. Your G$ is real crypto on Celo, so it travels between wallet addresses (a long string starting with 0x). Copy and paste the destination address. Never type it by hand. Send a small amount the first time. If you send to a wrong address, it is gone and nobody can reverse it.' },
-      { q: 'Can I send G$ straight to Bybit / an exchange?', a: 'No. G$ is not listed on Bybit, Binance or other exchanges, and sending it to an exchange deposit address will lose it. To reach an exchange you must first send G$ to your own wallet (e.g. MetaMask on the Celo network), swap it there, then send that.' },
+      { q: 'Where is my money?', a: 'Profile → Bank. Your TALLY balance, a full ledger (earned from UBI, earned from gameplay, spent in the market, sent out), the daily claim, and Transfer TALLY Out.' },
+      { q: 'How do I send my TALLY out?', a: 'Bank → Transfer TALLY Out. Your TALLY is real crypto on Celo, so it travels between wallet addresses (a long string starting with 0x). Copy and paste the destination address. Never type it by hand. Send a small amount the first time. If you send to a wrong address, it is gone and nobody can reverse it.' },
+      { q: 'Can I send TALLY straight to Bybit / an exchange?', a: 'No. TALLY is not listed on Bybit, Binance or other exchanges, and sending it to an exchange deposit address will lose it. To reach an exchange you must first send TALLY to your own wallet (e.g. MetaMask on the Celo network), swap it there, then send that.' },
     ],
   },
   {
     title: 'Troubleshooting',
     items: [
-      { q: 'My balance looks off.', a: "The Bank ledger tracks what happened inside StillHunt. Your on-chain wallet balance reflects everything, including G$ you received or claimed outside the app, so the two can differ. Nothing is lost." },
+      { q: 'My balance looks off.', a: "The Bank ledger tracks what happened inside StillHunt. Your on-chain wallet balance reflects everything, including TALLY you received or claimed outside the app, so the two can differ. Nothing is lost." },
       { q: 'The game or a claim is stuck.', a: 'Reload the page first. If a payout is on the way, the Bank shows it as pending and it settles on its own. If something still looks wrong, message us on Telegram.' },
       { q: 'I have a question that is not here.', a: 'Ask the community and the team directly on Telegram (link below).' },
     ],
@@ -77,12 +77,12 @@ const FAQ: Category[] = [
 // to your first payout.
 const WALKTHROUGH: { step: string; title: string; body: string }[] = [
   { step: '1', title: 'Getting in', body: 'Hit ENTER STILLHUNT. Continue with Google (easiest), Email, or connect a wallet. All three land in the same place.' },
-  { step: '2', title: 'Verify', body: "A quick verification, under 60 seconds, free. It confirms you're a real, unique person, and that's the integrity the game stands on. It also unlocks your daily free G$." },
+  { step: '2', title: 'Verify', body: "A quick verification, under 60 seconds, free. It confirms you're a real, unique person, and that's the integrity the game stands on. It also unlocks your daily free TALLY." },
   { step: '3', title: 'Forge your warrior', body: 'Pick a class: Berserker (raw power), Sentinel (defense + counters), or Phantom (speed, strikes first). Then name your warrior and grab an @username.' },
   { step: '4', title: 'Fight', body: 'On the FIGHT tab: Campaign (15 first-person operations across Ashfall, the Proving Ground and the Rift), Challenge a Player, Live PvP, and Endless survival. Win = +100 XP, Loss = +30 XP.' },
-  { step: '5', title: 'XP & ranks', body: 'XP ranks you up, and every rank-up pays 200 G$. Drifter → Tracker → Stalker → Marksman → Ranger → Ghost → Apex, then prestige past Apex. Later ranks cost more XP than earlier ones. Rank up and you join that tier’s reward pool.' },
-  { step: '6', title: 'Armoury', body: 'Spend G$ on guns, ammo, attachments, field kit, shields and boosters. Every item is on-chain, so you own it. Player Listings let you trade gear with other players.' },
-  { step: '7', title: 'Bank', body: 'Profile → Bank is where the money lives: your balance and ledger, the daily G$ claim, your rank reward pool, and Transfer G$ Out to cash out to any wallet.' },
+  { step: '5', title: 'XP & ranks', body: 'XP ranks you up, and every rank-up pays 200 TALLY. Drifter → Tracker → Stalker → Marksman → Ranger → Ghost → Apex, then prestige past Apex. Later ranks cost more XP than earlier ones. Rank up and you join that tier’s reward pool.' },
+  { step: '6', title: 'Armoury', body: 'Spend TALLY on guns, ammo, attachments, field kit, shields and boosters. Every item is on-chain, so you own it. Player Listings let you trade gear with other players.' },
+  { step: '7', title: 'Bank', body: 'Profile → Bank is where the money lives: your balance and ledger, the daily TALLY claim, your rank reward pool, and Transfer TALLY Out to cash out to any wallet.' },
 ]
 
 function Accordion({ q, a }: QA) {

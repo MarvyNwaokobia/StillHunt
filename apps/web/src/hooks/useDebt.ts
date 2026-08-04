@@ -37,7 +37,7 @@ export function useDebt(walletAddress: string | undefined) {
   })
 }
 
-/** Settle the outstanding balance: sign an EIP-2612 G$ permit for the owed amount
+/** Settle the outstanding balance: sign an EIP-2612 TALLY permit for the owed amount
  *  (relay wallet as spender), then the backend relays transferFrom → reward pool. */
 export function useSettleDebt(walletAddress: string | undefined) {
   const queryClient = useQueryClient()
@@ -61,7 +61,7 @@ export function useSettleDebt(walletAddress: string | undefined) {
         address: G_TOKEN_ADDRESS, abi: BALANCE_ABI, functionName: 'balanceOf',
         args: [walletAddress as `0x${string}`],
       })
-      if (balance < amount) throw new Error('Insufficient G$ balance to settle')
+      if (balance < amount) throw new Error('Insufficient TALLY balance to settle')
 
       const nonce = await readContract(config, {
         address: G_TOKEN_ADDRESS, abi: NONCES_ABI, functionName: 'nonces',

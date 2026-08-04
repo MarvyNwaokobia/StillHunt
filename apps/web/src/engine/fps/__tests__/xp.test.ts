@@ -107,7 +107,7 @@ describe('earn loop: rank from XP', () => {
     expect(rankUpsBetween(0, 2_610)).toEqual(['Tracker', 'Stalker', 'Marksman']);
   });
 
-  it('pays more G$ the higher the rank', () => {
+  it('pays more TALLY the higher the rank', () => {
     expect(gReward('Tracker')).toBe(500);
     expect(gReward('Stalker')).toBe(1_000);
     expect(gReward('Apex')).toBe(3_000);

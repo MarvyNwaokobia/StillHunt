@@ -1202,7 +1202,7 @@ export function GameScene(props: GameSceneProps) {
                 </div>
               )}
               {props.reward.gAwarded > 0 && (
-                <div className="text-lg font-bold text-emerald-300">+{props.reward.gAwarded} G$</div>
+                <div className="text-lg font-bold text-emerald-300">+{props.reward.gAwarded} TALLY</div>
               )}
             </div>
           )}

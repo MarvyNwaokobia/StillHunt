@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { useResolvedAuth } from '@/hooks/useResolvedAuth'
 import { useActiveWalletClient } from '@/hooks/useActiveWalletClient'
-import { formatGDollarNumber } from '@/utils/format'
+import { formatTallyNumber } from '@/utils/format'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? ''
 const SESSION_KEY = 'stillhunt-admin-session'
@@ -160,7 +160,7 @@ export default function AdminPage() {
   const [onchain, setOnchain] = useState<OnchainRow[]>([])
   const [newSeasonName, setNewSeasonName] = useState('The Release')
   // A season is a SCHEDULED window with a prize split, not just a name. These default
-  // to Season 1 as agreed: 27 Jul 2026 in local time, top 10 paid 50,000 G$ each.
+  // to Season 1 as agreed: 27 Jul 2026 in local time, top 10 paid 50,000 TALLY each.
   const [seasonStart, setSeasonStart] = useState('2026-07-27T00:00')
   const [seasonEnd, setSeasonEnd] = useState('2026-07-27T23:59')
   const [seasonWinners, setSeasonWinners] = useState(10)
@@ -313,7 +313,7 @@ export default function AdminPage() {
       `Create "${newSeasonName.trim()}"?\n\n` +
       `Opens:  ${startsIso ?? 'now'}\n` +
       `Closes: ${endsIso ?? 'left open'}\n` +
-      `Prize:  ${seasonPool.toLocaleString()} G$ — top ${seasonWinners} take ${seasonPerWinner.toLocaleString()} G$ each`
+      `Prize:  ${seasonPool.toLocaleString()} TALLY — top ${seasonWinners} take ${seasonPerWinner.toLocaleString()} TALLY each`
     if (!window.confirm(summary)) return
 
     setBusy(true)
@@ -340,7 +340,7 @@ export default function AdminPage() {
   }
 
   // Pays the season prizes on-chain. Long-running by nature: each prize is split
-  // into 10,000 G$ chunks (the pool's per-transfer cap), so this is dozens of
+  // into 10,000 TALLY chunks (the pool's per-transfer cap), so this is dozens of
   // transactions, not one. Safe to re-run — chunks that already landed are
   // skipped without gas, so a timeout here is resumed by pressing the button again.
   async function handlePayout() {
@@ -348,11 +348,11 @@ export default function AdminPage() {
     const { winners, unpaid_g, tx_count, season } = preview
     const lines = winners
       .filter((w) => w.status !== 'paid')
-      .map((w) => `  ${w.rank}. ${w.username || w.wallet_address.slice(0, 10)} — ${w.amount_g.toLocaleString()} G$`)
+      .map((w) => `  ${w.rank}. ${w.username || w.wallet_address.slice(0, 10)} — ${w.amount_g.toLocaleString()} TALLY`)
       .join('\n')
     const ok = window.confirm(
       `Pay out "${season.name}"?\n\n${lines}\n\n` +
-      `Total: ${unpaid_g.toLocaleString()} G$ across ${tx_count} on-chain transactions.\n\n` +
+      `Total: ${unpaid_g.toLocaleString()} TALLY across ${tx_count} on-chain transactions.\n\n` +
       `This sends REAL money and cannot be undone. It may take several minutes.`,
     )
     if (!ok) return
@@ -433,7 +433,7 @@ export default function AdminPage() {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center gap-5 px-6 text-center" style={{ background: '#04030c' }}>
         <p className="font-display font-black text-white text-2xl">StillHunt Admin</p>
-        <p className="text-slate-400 text-sm max-w-xs">Sign a message with your admin wallet to view season and G$ volume stats.</p>
+        <p className="text-slate-400 text-sm max-w-xs">Sign a message with your admin wallet to view season and TALLY volume stats.</p>
         {loginError && <p className="text-red-400 text-xs">{loginError}</p>}
         <motion.button
           onClick={handleAdminLogin}
@@ -570,7 +570,7 @@ export default function AdminPage() {
                     {w.username || `${w.wallet_address.slice(0, 6)}…${w.wallet_address.slice(-4)}`}
                   </span>
                   <span className="text-slate-500 tabular-nums">{w.waves}w</span>
-                  <span className="text-amber-300 font-bold tabular-nums">{w.amount_g.toLocaleString()} G$</span>
+                  <span className="text-amber-300 font-bold tabular-nums">{w.amount_g.toLocaleString()} TALLY</span>
                   {w.status === 'paid'
                     ? <span className="text-emerald-400 text-[10px] font-bold w-12 text-right">PAID</span>
                     : w.status === 'failed'
@@ -582,11 +582,11 @@ export default function AdminPage() {
 
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-400 mb-2">
               <span>{preview.winner_count} winners</span>
-              <span className="text-slate-200 font-bold">{preview.unpaid_g.toLocaleString()} G$ to send</span>
+              <span className="text-slate-200 font-bold">{preview.unpaid_g.toLocaleString()} TALLY to send</span>
               <span>{preview.tx_count} transactions</span>
               {preview.pool_balance_g !== null && (
                 <span className={preview.funded ? 'text-emerald-400' : 'text-red-400'}>
-                  pool {preview.pool_balance_g.toLocaleString()} G$
+                  pool {preview.pool_balance_g.toLocaleString()} TALLY
                 </span>
               )}
               {preview.relay_celo !== null && (
@@ -617,7 +617,7 @@ export default function AdminPage() {
               {paying ? 'Paying… this takes a few minutes'
                 : preview.unpaid_g === 0 ? 'All winners paid'
                 : !preview.season.closed ? 'Locked until the season closes'
-                : `Pay ${preview.winners.filter((w) => w.status !== 'paid').length} winners · ${preview.unpaid_g.toLocaleString()} G$`}
+                : `Pay ${preview.winners.filter((w) => w.status !== 'paid').length} winners · ${preview.unpaid_g.toLocaleString()} TALLY`}
             </button>
           </div>
         )}
@@ -655,17 +655,17 @@ export default function AdminPage() {
                 className="px-3 py-2 rounded-lg bg-black/30 border border-hunt-border text-sm text-white focus:outline-none" />
             </label>
             <label className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase tracking-widest text-slate-600">G$ each</span>
+              <span className="text-[10px] uppercase tracking-widest text-slate-600">TALLY each</span>
               <input type="number" min={0} step={1000} value={seasonPerWinner}
                 onChange={(e) => setSeasonPerWinner(Math.max(0, Number(e.target.value) || 0))}
                 className="px-3 py-2 rounded-lg bg-black/30 border border-hunt-border text-sm text-white focus:outline-none" />
             </label>
           </div>
           <p className="text-xs text-slate-500">
-            Prize pool <span className="text-amber-400 font-bold">{seasonPool.toLocaleString()} G$</span>
-            {' · '}top {seasonWinners} take {seasonPerWinner.toLocaleString()} G$ each
+            Prize pool <span className="text-amber-400 font-bold">{seasonPool.toLocaleString()} TALLY</span>
+            {' · '}top {seasonWinners} take {seasonPerWinner.toLocaleString()} TALLY each
             {seasonPerWinner > 10000 && (
-              <span className="text-slate-600"> · paid in {Math.ceil(seasonPerWinner / 10000)} transactions each (10,000 G$ on-chain cap)</span>
+              <span className="text-slate-600"> · paid in {Math.ceil(seasonPerWinner / 10000)} transactions each (10,000 TALLY on-chain cap)</span>
             )}
           </p>
           <div className="flex gap-2">
@@ -705,14 +705,14 @@ export default function AdminPage() {
             <StatTile label="New Players" value={stats.new_players.toLocaleString()} />
             <StatTile label="Active Players" value={stats.active_players.toLocaleString()} />
             <StatTile label="Total Battles" value={stats.total_battles.toLocaleString()} />
-            <StatTile label="G$ Awarded" value={`${formatGDollarNumber(stats.total_g_awarded)} G$`} />
-            <StatTile label="G$ Volume Moved" value={`${formatGDollarNumber(stats.total_g_volume)} G$`} />
-            <StatTile label="G$ Transferred Out" value={`${formatGDollarNumber(stats.total_g_transferred_out)} G$`} />
+            <StatTile label="TALLY Awarded" value={`${formatTallyNumber(stats.total_g_awarded)} TALLY`} />
+            <StatTile label="TALLY Volume Moved" value={`${formatTallyNumber(stats.total_g_volume)} TALLY`} />
+            <StatTile label="TALLY Transferred Out" value={`${formatTallyNumber(stats.total_g_transferred_out)} TALLY`} />
           </div>
         </div>
       )}
 
-      {/* On-chain activity — mission records + G$ moves, each linked to Celoscan */}
+      {/* On-chain activity — mission records + TALLY moves, each linked to Celoscan */}
       <div className="bg-hunt-surface border border-hunt-border rounded-xl p-4">
         <div className="flex items-center justify-between mb-3 gap-3">
           <h3 className="font-display font-bold text-white text-sm">On-Chain Activity</h3>
@@ -739,7 +739,7 @@ export default function AdminPage() {
                   {KIND_LABEL[r.kind] ?? r.kind}
                 </span>
                 <span className="text-xs text-slate-300 font-mono truncate flex-1">{r.wallet.slice(0, 8)}…{r.wallet.slice(-4)}</span>
-                {r.detail && <span className="text-[11px] text-slate-500 shrink-0">{r.kind === 'mission_record' ? `OP ${r.detail}` : `${formatGDollarNumber(Number(r.detail))} G$`}</span>}
+                {r.detail && <span className="text-[11px] text-slate-500 shrink-0">{r.kind === 'mission_record' ? `OP ${r.detail}` : `${formatTallyNumber(Number(r.detail))} TALLY`}</span>}
                 <span className="text-[10px] text-slate-600 font-mono shrink-0">{r.tx_hash.slice(0, 8)}…</span>
               </a>
             ))}

@@ -35,14 +35,14 @@ function useEmbers(n = 18) {
 
 const FEATURES = [
   { Icon: Crosshair, label: 'Fight',  color: '#ef4444', desc: 'Real-time gun duels — your weapon and dodge timing decide who walks away.' },
-  { Icon: Coins,  label: 'Earn G$', color: '#eab308', desc: 'Every victory pays out GoodDollar tokens — real money that goes directly into your account.' },
+  { Icon: Coins,  label: 'Earn TALLY', color: '#eab308', desc: 'Every victory pays out GoodDollar tokens — real money that goes directly into your account.' },
   { Icon: Gem,    label: 'Own',    color: '#8b5cf6', desc: 'Weapons and gear are yours permanently. Buy, sell, and equip in the Armoury.' },
 ] as const
 
 const HOW_IT_WORKS = [
   { num: '01', color: '#ef4444', title: 'Prove You\'re Human', desc: 'Connect via GoodDollar — the universal basic income protocol. One fighter per verified player. No bots.' },
   { num: '02', color: '#3b82f6', title: 'Choose Your Class',  desc: 'Berserker, Sentinel, or Phantom. Your class is permanent — it defines your identity in the arena.' },
-  { num: '03', color: '#8b5cf6', title: 'Battle & Earn',      desc: 'Climb the ranks. Every win pays out G$ tokens on Celo. Every loss teaches you something.' },
+  { num: '03', color: '#8b5cf6', title: 'Battle & Earn',      desc: 'Climb the ranks. Every win pays out TALLY tokens on Celo. Every loss teaches you something.' },
 ] as const
 
 const CLASS_IMGS: Record<string, string> = {
@@ -508,7 +508,7 @@ export default function LandingPage() {
           </h2>
 
           <p className="text-slate-500 leading-relaxed" style={{ fontSize:13, maxWidth:340 }}>
-            One human. One fighter. Every victory earns real G$ on Celo. No bots. No alts. Only you.
+            One human. One fighter. Every victory earns real TALLY on Celo. No bots. No alts. Only you.
           </p>
 
           <div className="w-full flex flex-col items-center gap-3 mt-2">

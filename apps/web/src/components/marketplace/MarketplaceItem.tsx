@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 import type { Item } from '@/types'
 import { ITEM_RARITY_COLORS } from '@/lib/constants'
-import { formatGDollarNumber } from '@/utils/format'
+import { formatTallyNumber } from '@/utils/format'
 import { usePurchaseItem } from '@/hooks/useMarketplace'
 import { usePlayerStore } from '@/stores/usePlayerStore'
 import { CURRENCY } from '@/config/chain'
@@ -104,8 +104,8 @@ export default function MarketplaceItem({ item, walletAddress }: Props) {
     } catch (err) {
       if (isUserRejection(err)) {
         setShowConfirm(false)
-      } else if (err instanceof Error && err.message === 'Insufficient G$ balance') {
-        setError('You don\'t have enough G$ to buy this item.')
+      } else if (err instanceof Error && err.message === 'Insufficient TALLY balance') {
+        setError('You don\'t have enough TALLY to buy this item.')
       } else {
         setError('Purchase could not be completed. Please try again.')
         console.error('[Purchase]', err)
@@ -214,7 +214,7 @@ export default function MarketplaceItem({ item, walletAddress }: Props) {
         {/* Price */}
         <div className="flex items-center justify-between mt-auto pt-2" style={{ borderTop: '1px solid rgba(42,42,58,0.4)' }}>
           <span className="font-bold" style={{ color: notSoldHere ? '#64748b' : '#eab308' }}>
-            {notSoldHere ? 'Not for sale' : `${formatGDollarNumber(price)} ${symbol}`}
+            {notSoldHere ? 'Not for sale' : `${formatTallyNumber(price)} ${symbol}`}
           </span>
           {(() => {
             const gid = gunIdFromItemId(item.id)
@@ -341,7 +341,7 @@ export default function MarketplaceItem({ item, walletAddress }: Props) {
               {/* Price row */}
               <div className="flex items-center justify-between py-2 border-t" style={{ borderColor: '#2a2a3a' }}>
                 <span className="text-slate-400 text-sm">Total</span>
-                <span className="font-black text-hunt-gold text-lg">{formatGDollarNumber(price ?? 0)} {symbol}</span>
+                <span className="font-black text-hunt-gold text-lg">{formatTallyNumber(price ?? 0)} {symbol}</span>
               </div>
 
               {error && <p className="text-red-400 text-xs -mt-2">{error}</p>}

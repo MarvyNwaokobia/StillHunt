@@ -234,7 +234,7 @@ export default function DuelsPage() {
               <>
                 <p className="font-display font-black text-hunt-gold text-lg">You won</p>
                 <p className="text-slate-300 text-sm">
-                  +{result.winnings_g?.toLocaleString()} G$ · {result.challenger_score} vs {result.opponent_score}
+                  +{result.winnings_g?.toLocaleString()} TALLY · {result.challenger_score} vs {result.opponent_score}
                 </p>
               </>
             ) : (
@@ -292,7 +292,7 @@ export default function DuelsPage() {
         )}
 
         {/* ── Stake confirmation ───────────────────────────────────────────────
-            The last screen before real G$ leaves the wallet. It exists so nobody
+            The last screen before real TALLY leaves the wallet. It exists so nobody
             can stake by reflex: the amount, what winning pays, what the pool keeps
             and what happens on a draw are all stated before the button that spends. */}
         {confirm && (
@@ -300,16 +300,16 @@ export default function DuelsPage() {
             <div className="flex items-center gap-2">
               <AlertTriangle className="text-hunt-gold shrink-0" size={16} />
               <p className="font-display font-black text-white text-sm uppercase tracking-wider">
-                You are staking real G$
+                You are staking real TALLY
               </p>
             </div>
 
             <div className="rounded-xl bg-hunt-surface-2 border border-hunt-border divide-y divide-hunt-border">
-              <Row label="Your stake" value={`${confirm.stake.toLocaleString()} G$`} strong />
-              <Row label="Opponent stakes" value={`${confirm.stake.toLocaleString()} G$`} />
-              <Row label="If you win" value={`+${payoutFor(confirm.stake).toLocaleString()} G$`} gold strong />
-              <Row label="If you lose" value={`-${confirm.stake.toLocaleString()} G$`} />
-              <Row label={`StillHunt pool (${cutLabel})`} value={`${poolCut(confirm.stake).toLocaleString()} G$`} />
+              <Row label="Your stake" value={`${confirm.stake.toLocaleString()} TALLY`} strong />
+              <Row label="Opponent stakes" value={`${confirm.stake.toLocaleString()} TALLY`} />
+              <Row label="If you win" value={`+${payoutFor(confirm.stake).toLocaleString()} TALLY`} gold strong />
+              <Row label="If you lose" value={`-${confirm.stake.toLocaleString()} TALLY`} />
+              <Row label={`StillHunt pool (${cutLabel})`} value={`${poolCut(confirm.stake).toLocaleString()} TALLY`} />
             </div>
 
             <p className="text-slate-500 text-xs leading-relaxed">
@@ -337,7 +337,7 @@ export default function DuelsPage() {
               >
                 {pending
                   ? <><Loader2 className="animate-spin" size={16} /> Staking…</>
-                  : <>Stake {confirm.stake.toLocaleString()} G$</>}
+                  : <>Stake {confirm.stake.toLocaleString()} TALLY</>}
               </button>
             </div>
           </div>
@@ -347,7 +347,7 @@ export default function DuelsPage() {
           <div className="rounded-xl border border-hunt-gold/30 bg-hunt-surface p-5 flex flex-col gap-2">
             <p className="font-display font-black text-white text-sm uppercase tracking-wider">Your open duel</p>
             <p className="text-slate-400 text-sm">
-              {myOpen.stake_g.toLocaleString()} G$ staked — waiting for someone to accept.
+              {myOpen.stake_g.toLocaleString()} TALLY staked — waiting for someone to accept.
             </p>
             {/* Closing is a REFUND, not a payment, so it needs no signature and
                 stays available even when the wallet can't sign. A real button
@@ -377,7 +377,7 @@ export default function DuelsPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-white font-bold text-sm truncate">{who(d.challenger_name, d.challenger)}</p>
                   <p className="text-slate-500 text-[11px]">
-                    {d.stake_g.toLocaleString()} G$ · winner takes {d.winner_takes_g.toLocaleString()}
+                    {d.stake_g.toLocaleString()} TALLY · winner takes {d.winner_takes_g.toLocaleString()}
                   </p>
                 </div>
                 <button
@@ -402,7 +402,7 @@ export default function DuelsPage() {
                 <div key={d.id} className="rounded-xl border border-hunt-border bg-hunt-surface-2/50 px-4 py-2.5 flex items-center gap-3">
                   <div className="flex-1 min-w-0">
                     <p className="text-slate-300 text-sm truncate">
-                      vs {who(d.opponent_name, d.opponent)} · {d.stake_g.toLocaleString()} G$
+                      vs {who(d.opponent_name, d.opponent)} · {d.stake_g.toLocaleString()} TALLY
                     </p>
                     {d.status === 'resolved' && (
                       <p className="text-slate-500 text-[11px]">{d.challenger_score} — {d.opponent_score}</p>
@@ -424,7 +424,7 @@ export default function DuelsPage() {
         {pickingLoadout && run && (
           <LoadoutModal
             opName="Duel"
-            label={`Loadout · ${run.stake_g.toLocaleString()} G$ staked`}
+            label={`Loadout · ${run.stake_g.toLocaleString()} TALLY staked`}
             cta="ENTER THE DUEL"
             walletAddress={address}
             onClose={() => setPickingLoadout(false)}

@@ -153,7 +153,7 @@ export default function InventoryPanel({ inventory, walletAddress }: Props) {
                     <input
                       type="number" min="0" value={sellPrice}
                       onChange={(e) => setSellPrice(e.target.value)}
-                      placeholder="Price G$"
+                      placeholder="Price TALLY"
                       className="w-full min-w-0 bg-black/40 border border-hunt-border rounded px-1.5 py-0.5 text-xs text-white"
                     />
                     <button onClick={() => handleList(item)} disabled={resalePending}

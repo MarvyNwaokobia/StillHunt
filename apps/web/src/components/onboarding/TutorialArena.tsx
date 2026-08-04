@@ -151,7 +151,7 @@ export default function TutorialArena({ player, onComplete }: Props) {
             +{battle.result.xpAwarded} XP · You're ready
           </p>
           <p className="text-slate-400 text-sm leading-relaxed mt-1">
-            The arena awaits. Real warriors. Real stakes. Real G$ on the line.
+            The arena awaits. Real warriors. Real stakes. Real TALLY on the line.
           </p>
         </motion.div>
 

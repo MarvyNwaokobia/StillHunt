@@ -11,7 +11,7 @@ import PlayerCard from '@/components/player-card/PlayerCard'
 vi.mock('@/hooks/useResolvedAuth', () => ({
   useResolvedAuth: () => ({ status: 'ready', address: '0xdeadbeef', source: 'magic' }),
 }))
-vi.mock('@/hooks/useGBalance', () => ({ useGBalance: () => ({ formatted: '12.50 G$' }) }))
+vi.mock('@/hooks/useGBalance', () => ({ useGBalance: () => ({ formatted: '12.50 TALLY' }) }))
 vi.mock('@/hooks/useAchievements', () => ({
   useAchievements: () => ({ achievements: [], loading: false }),
 }))

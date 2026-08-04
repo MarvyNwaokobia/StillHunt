@@ -12,7 +12,7 @@ export interface FightReward {
   rankedUp:      boolean
   newRank:       Player['rank'] | null
   gAwarded:      number
-  bountyAwarded: number  // one-time first-clear G$ bounty (0 unless a new op cleared)
+  bountyAwarded: number  // one-time first-clear TALLY bounty (0 unless a new op cleared)
   firstClear:    boolean
   prestiged:     boolean // true when this fight prestiged past Apex
   prestigeLevel: number  // prestige level after this fight
@@ -28,7 +28,7 @@ export interface FightTelemetry {
 /**
  * Records a finished real-time fight with the server, which is authoritative over
  * all rewards — the client only reports whether it won and how long the fight ran.
- * Mirrors the turn-based `useBattle` finalize: applies XP/rank/G$ to the player
+ * Mirrors the turn-based `useBattle` finalize: applies XP/rank/TALLY to the player
  * store and fires achievement + decay-recovery checks. This is what moves the
  * earn loop onto the live fighter so the turn-based "Classic" mode can retire.
  */
@@ -43,7 +43,7 @@ export function useFightRewards() {
 
   // The server-issued fight token for the current run. Obtained at fight START via
   // startFight() and consumed by submitResult(). Campaign rewards (XP / first-clear
-  // G$ / pve advance) are only granted when a valid token backs the completion, so
+  // TALLY / pve advance) are only granted when a valid token backs the completion, so
   // the client can no longer forge an outcome or skip ops.
   const sessionIdRef = useRef<string | null>(null)
 
@@ -92,7 +92,7 @@ export function useFightRewards() {
       const wallet = player.wallet_address
 
       // Consume the token (single-use). Its presence marks this as a Campaign run;
-      // its absence a flat, non-Campaign fight (Endless) that can never earn G$.
+      // its absence a flat, non-Campaign fight (Endless) that can never earn TALLY.
       const sessionId = sessionIdRef.current
       sessionIdRef.current = null
 
@@ -117,7 +117,7 @@ export function useFightRewards() {
         const data = await res.json()
 
         // ── Sync the player store from the server's authoritative result ──
-        // B0: ranking up is pure progression (no G$); G$ now comes from the
+        // B0: ranking up is pure progression (no TALLY); TALLY now comes from the
         // one-time first-clear bounty, which is what bumps the lifetime stat.
         const bountyAwarded: number = data.bounty_awarded ?? 0
         const storeUpdates: Partial<Player> = {
@@ -175,7 +175,7 @@ export function useFightRewards() {
   // Record a DEATH (a lost run) with the server. Unlike submitResult this goes through
   // the sessionless flat path ON PURPOSE: it must NOT consume the campaign token (the
   // op auto-restarts in place, and the eventual clear still needs that token to earn
-  // G$ / advance the level). A loss never pays, so it needs no session anti-cheat. The
+  // TALLY / advance the level). A loss never pays, so it needs no session anti-cheat. The
   // server still writes the on-chain StillHuntRecord (player as loser). Fire-and-forget.
   const reportLoss = useCallback(
     async (telemetry?: FightTelemetry): Promise<void> => {

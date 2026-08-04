@@ -2,7 +2,7 @@ import type { MatchEndMsg } from '../multiplayer/CombatProtocol';
 
 /**
  * Reports a finished real-time PvP match to the API so both players are awarded
- * (XP / rank / G$). This is the bridge from GameRoom's authoritative MatchEnd to
+ * (XP / rank / TALLY). This is the bridge from GameRoom's authoritative MatchEnd to
  * the economy — called by the trusted realtime sim host, never by a client. The
  * shared secret authenticates the host to the server-only `/battles/pvp/complete`
  * endpoint (the API computes all amounts; the host only reports who won).

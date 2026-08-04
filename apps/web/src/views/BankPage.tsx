@@ -14,7 +14,7 @@ import { useTransferOut, useWithdrawFee, splitWithdrawal } from '@/hooks/useTran
 import { useDebt, useSettleDebt } from '@/hooks/useDebt'
 import WeeklyEarnCap from '@/components/bank/WeeklyEarnCap'
 import ClaimCard from '@/components/bank/ClaimCard'
-import { formatGDollarNumber } from '@/utils/format'
+import { formatTallyNumber } from '@/utils/format'
 import LoadingScreen from '@/components/ui/LoadingScreen'
 
 function truncate(address: string) {
@@ -32,7 +32,7 @@ function StatTile({ label, value, sub }: { label: string; value: string; sub?: s
 }
 
 /** Outstanding-balance banner: shown when the player owes the shop (e.g. a price
- *  adjustment). Dismissible; settling signs a G$ permit that moves the owed amount
+ *  adjustment). Dismissible; settling signs a TALLY permit that moves the owed amount
  *  into the reward pool. Renders nothing when there's no debt. */
 function SettleBanner({ address }: { address: string | undefined }) {
   const { data: debt } = useDebt(address)
@@ -60,7 +60,7 @@ function SettleBanner({ address }: { address: string | undefined }) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[9px] uppercase tracking-widest text-red-400/80 font-bold">Outstanding balance</p>
-          <p className="font-black text-red-300 text-lg leading-tight">{formatGDollarNumber(owed)} G$ due</p>
+          <p className="font-black text-red-300 text-lg leading-tight">{formatTallyNumber(owed)} TALLY due</p>
           <p className="text-[11px] text-slate-400 mt-0.5">
             {debt?.reason ? `From: ${debt.reason}. ` : ''}Sign to settle — it moves into the prize pool.
           </p>
@@ -72,7 +72,7 @@ function SettleBanner({ address }: { address: string | undefined }) {
             disabled={pending}
             className="px-3 py-1.5 rounded-lg text-xs font-bold text-white disabled:opacity-50"
             style={{ background: 'rgba(239,68,68,0.85)' }}>
-            {pending ? 'Settling…' : `Settle ${formatGDollarNumber(owed)} G$`}
+            {pending ? 'Settling…' : `Settle ${formatTallyNumber(owed)} TALLY`}
           </button>
           <button onClick={() => setDismissed(true)} className="text-[10px] text-slate-500 hover:text-slate-300">
             Later
@@ -144,7 +144,7 @@ export default function BankPage() {
         </Link>
         <div className="flex flex-col gap-0.5">
           <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-amber-500">Bank</p>
-          <h1 className="font-display font-black text-white text-2xl tracking-wide">Your G$</h1>
+          <h1 className="font-display font-black text-white text-2xl tracking-wide">Your TALLY</h1>
         </div>
       </motion.div>
 
@@ -172,8 +172,8 @@ export default function BankPage() {
       <div className="flex items-center justify-between px-4 py-3 rounded-xl border"
         style={{ background: 'rgba(234,179,8,0.08)', borderColor: 'rgba(234,179,8,0.35)' }}>
         <div>
-          <p className="text-[9px] uppercase tracking-widest text-amber-500/70 font-bold">G$ Balance</p>
-          <p className="font-black text-amber-400 text-2xl">{gBalanceFormatted ? `${gBalanceFormatted} G$` : '—'}</p>
+          <p className="text-[9px] uppercase tracking-widest text-amber-500/70 font-bold">TALLY Balance</p>
+          <p className="font-black text-amber-400 text-2xl">{gBalanceFormatted ? `${gBalanceFormatted} TALLY` : '—'}</p>
         </div>
         <div className="text-right">
           <p className="text-[9px] uppercase tracking-widest text-slate-600 font-bold">Spendable</p>
@@ -181,10 +181,10 @@ export default function BankPage() {
         </div>
       </div>
 
-      {/* Pending payout — earned G$ whose on-chain transfer hasn't landed yet. Only
+      {/* Pending payout — earned TALLY whose on-chain transfer hasn't landed yet. Only
           shown when there is one; it settles by itself (the reconcile sweep retries
           anything the live attempt missed), so this exists to stop the gap between
-          "+500 G$" and the balance updating reading as lost money. */}
+          "+500 TALLY" and the balance updating reading as lost money. */}
       {!!ledger?.pending_payout && (
         <motion.div
           initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
@@ -199,7 +199,7 @@ export default function BankPage() {
           />
           <div className="min-w-0">
             <p className="text-xs font-bold text-amber-400">
-              {formatGDollarNumber(ledger.pending_payout)} G$ on the way
+              {formatTallyNumber(ledger.pending_payout)} TALLY on the way
             </p>
             <p className="text-[10px] text-slate-500 mt-0.5">
               Earned and confirmed. It lands in your balance once the transfer settles.
@@ -214,10 +214,10 @@ export default function BankPage() {
 
       {/* Earned / spent breakdown */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatTile label="Earned · UBI" value={`${formatGDollarNumber(ledger?.ubi_earned ?? 0)} G$`} />
-        <StatTile label="Earned · Gameplay" value={`${formatGDollarNumber(ledger?.gameplay_earned ?? 0)} G$`} />
-        <StatTile label="Spent · Market" value={`${formatGDollarNumber(ledger?.marketplace_spent ?? 0)} G$`} />
-        <StatTile label="Transferred Out" value={`${formatGDollarNumber(ledger?.transferred_out ?? 0)} G$`} />
+        <StatTile label="Earned · UBI" value={`${formatTallyNumber(ledger?.ubi_earned ?? 0)} TALLY`} />
+        <StatTile label="Earned · Gameplay" value={`${formatTallyNumber(ledger?.gameplay_earned ?? 0)} TALLY`} />
+        <StatTile label="Spent · Market" value={`${formatTallyNumber(ledger?.marketplace_spent ?? 0)} TALLY`} />
+        <StatTile label="Transferred Out" value={`${formatTallyNumber(ledger?.transferred_out ?? 0)} TALLY`} />
       </div>
 
       {/* Daily claim + rank pool */}
@@ -229,7 +229,7 @@ export default function BankPage() {
       <div className="bg-hunt-surface border border-hunt-border rounded-xl p-4 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div>
-            <p className="font-bold text-white text-sm">Transfer G$ Out</p>
+            <p className="font-bold text-white text-sm">Transfer TALLY Out</p>
             <p className="text-[10px] text-slate-500 mt-0.5">
               Send to any wallet — cash out your winnings
               {feeBps > 0 && ` · ${withdrawFee?.percent}% withdrawal fee`}
@@ -244,7 +244,7 @@ export default function BankPage() {
             className="w-full py-2.5 font-black text-sm rounded-lg border text-slate-300 hover:text-white transition-colors"
             style={{ borderColor: '#2a2a3a' }}
           >
-            Send G$
+            Send TALLY
           </button>
         ) : (
           <div className="flex flex-col gap-2.5">
@@ -259,7 +259,7 @@ export default function BankPage() {
               type="number"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              placeholder="Amount (G$)"
+              placeholder="Amount (TALLY)"
               min="0"
               step="any"
               className="w-full px-3 py-2.5 rounded-lg bg-black/30 border border-hunt-border text-sm text-white placeholder:text-slate-600 focus:outline-none"
@@ -272,15 +272,15 @@ export default function BankPage() {
               <div className="rounded-lg border border-hunt-border bg-black/20 px-3 py-2 flex flex-col gap-1 text-[11px]">
                 <div className="flex justify-between text-slate-400">
                   <span>Leaving your wallet</span>
-                  <span className="font-mono text-slate-300">{formatGDollarNumber(parseFloat(amount) || 0)} G$</span>
+                  <span className="font-mono text-slate-300">{formatTallyNumber(parseFloat(amount) || 0)} TALLY</span>
                 </div>
                 <div className="flex justify-between text-slate-400">
                   <span>Withdrawal fee ({withdrawFee?.percent}%)</span>
-                  <span className="font-mono text-amber-400">-{formatGDollarNumber(amountFee)} G$</span>
+                  <span className="font-mono text-amber-400">-{formatTallyNumber(amountFee)} TALLY</span>
                 </div>
                 <div className="flex justify-between font-bold text-white pt-1 border-t border-hunt-border">
                   <span>They receive</span>
-                  <span className="font-mono">{formatGDollarNumber(amountNet)} G$</span>
+                  <span className="font-mono">{formatTallyNumber(amountNet)} TALLY</span>
                 </div>
               </div>
             )}
@@ -307,8 +307,8 @@ export default function BankPage() {
                 {transferring
                   ? 'Sending…'
                   : feeBps > 0
-                      ? `Send ${formatGDollarNumber(amountNet)} G$`
-                      : `Confirm sending ${amount || '0'} G$`}
+                      ? `Send ${formatTallyNumber(amountNet)} TALLY`
+                      : `Confirm sending ${amount || '0'} TALLY`}
               </motion.button>
             </div>
           </div>

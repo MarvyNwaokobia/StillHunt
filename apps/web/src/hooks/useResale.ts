@@ -15,7 +15,7 @@ import type { Item } from '@/types'
  * Player-to-player resale against the upgraded StillHuntMarketplace (approval-based).
  *
  * Listing/cancelling are direct wallet txs (the seller approves the marketplace as
- * an ERC-1155 operator once, then lists). Buying signs an EIP-2612 G$ permit so the
+ * an ERC-1155 operator once, then lists). Buying signs an EIP-2612 TALLY permit so the
  * buyer needs no separate approve tx. Resale guns must be registered on-chain
  * (item.on_chain_id != null) to be listable.
  */
@@ -24,7 +24,7 @@ import type { Item } from '@/types'
 // callback so the edition is resolved at use rather than frozen at import.
 const MARKETPLACE = () => requireMarketplaceAddress()
 const CURRENCY = () => requireCurrencyAddress()
-// Every currency StillHunt uses is 18 decimals (G$, USDm, SCRP).
+// Every currency StillHunt uses is 18 decimals (TALLY, USDm, SCRP).
 const CURRENCY_DECIMALS = 18
 
 const MARKETPLACE_ABI = [
@@ -62,7 +62,7 @@ export interface ResaleListing {
   resaleId: bigint
   seller: string
   itemId: bigint   // on-chain item id
-  price: bigint    // G$ wei
+  price: bigint    // TALLY wei
 }
 
 export function useResale(walletAddress?: string) {
@@ -75,7 +75,7 @@ export function useResale(walletAddress?: string) {
     [config],
   )
 
-  /** List an owned item for resale at `priceG` G$ (approves the marketplace first if needed). */
+  /** List an owned item for resale at `priceG` TALLY (approves the marketplace first if needed). */
   const listForResale = useCallback(async (item: Item, priceG: number): Promise<`0x${string}`> => {
     if (!walletAddress) throw new Error('Not signed in')
     if (!walletClient?.account) throw new Error('Wallet not connected')
@@ -124,7 +124,7 @@ export function useResale(walletAddress?: string) {
     }
   }, [config, walletClient])
 
-  /** Buy a resale listing — signs a G$ permit (no separate approve), then settles. */
+  /** Buy a resale listing — signs a TALLY permit (no separate approve), then settles. */
   const buyResale = useCallback(async (resaleId: bigint, price: bigint): Promise<`0x${string}`> => {
     if (!walletAddress) throw new Error('Not signed in')
     if (!walletClient?.account) throw new Error('Wallet not connected')

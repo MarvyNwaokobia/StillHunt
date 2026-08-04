@@ -29,7 +29,7 @@ interface CardPlayer {
   g_earned_lifetime?: number
 }
 
-/** Compact G$ for a picture: 14000 -> "14.0k". */
+/** Compact TALLY for a picture: 14000 -> "14.0k". */
 function compactG(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`
@@ -131,7 +131,7 @@ export async function renderCardImage(walletAddress: string): Promise<ImageRespo
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <div style={{ display: 'flex', fontSize: 18, letterSpacing: 3, color: '#64748b' }}>EARNED</div>
               <div style={{ display: 'flex', fontSize: 34, color: '#eab308', fontWeight: 800 }}>
-                {compactG(earned)} G$
+                {compactG(earned)} TALLY
               </div>
             </div>
             {/* Hidden at zero, like the other surfaces. */}
@@ -146,7 +146,7 @@ export async function renderCardImage(walletAddress: string): Promise<ImageRespo
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <div style={{ display: 'flex', fontSize: 22, color: '#64748b' }}>
-            One human. One fighter. Earn real G$ on Celo.
+            One human. One fighter. Earn real TALLY on Celo.
           </div>
           {/* The player's own link, so a screenshot still points somewhere. */}
           <div style={{ display: 'flex', fontSize: 22, color: '#eab308', fontWeight: 700 }}>

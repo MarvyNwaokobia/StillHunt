@@ -154,7 +154,7 @@ export default function OperationsSelect({ player, onBack }: Props) {
                 </div>
                 <p className="text-slate-500 text-xs mt-0.5">
                   {endlessUnlocked
-                    ? 'The rooms keep coming · resume anytime · every wave pays G$'
+                    ? 'The rooms keep coming · resume anytime · every wave pays TALLY'
                     : `Clear all ${CAMPAIGN.length} operations to unlock (${cleared} / ${CAMPAIGN.length})`}
                 </p>
               </div>

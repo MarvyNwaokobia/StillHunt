@@ -39,8 +39,8 @@ export async function generateMetadata({
 
   const title = name ? `${name} · ${rank ?? 'Warrior'} · StillHunt` : 'StillHunt Player Card'
   const description = name
-    ? `${name} is fighting for real G$ on StillHunt. See their rank, record and loadout.`
-    : 'One human. One fighter. Earn real G$ on Celo.'
+    ? `${name} is fighting for real TALLY on StillHunt. See their rank, record and loadout.`
+    : 'One human. One fighter. Earn real TALLY on Celo.'
 
   return {
     title,

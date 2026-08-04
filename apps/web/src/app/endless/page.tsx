@@ -171,7 +171,7 @@ export default function EndlessPage() {
             <p className="text-slate-600 text-xs mb-6 leading-relaxed">
               Rooms upon rooms, and no end to them. Leave whenever you like and come back
               on the wave you left. Dying only sends you to the start of your current wave,
-              never back to the beginning. Every wave cleared pays G$.
+              never back to the beginning. Every wave cleared pays TALLY.
             </p>
 
             <button

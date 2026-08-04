@@ -60,7 +60,7 @@ export default function ResaleBrowse({ walletAddress }: { walletAddress?: string
           return (
             <div key={id} className="flex flex-col gap-2 p-3 rounded-lg border border-hunt-border bg-hunt-surface-2">
               <p className="text-sm font-bold text-white truncate">{item?.name ?? `Item #${l.itemId}`}</p>
-              <p className="text-xs text-amber-400 font-black">{formatUnits(l.price, 18)} G$</p>
+              <p className="text-xs text-amber-400 font-black">{formatUnits(l.price, 18)} TALLY</p>
               <p className="text-[10px] text-slate-500 truncate">
                 {mine ? 'Your listing' : `${l.seller.slice(0, 6)}…${l.seller.slice(-4)}`}
               </p>

@@ -81,7 +81,7 @@ export function useTransferOut(walletAddress: string | undefined) {
         address: G_TOKEN_ADDRESS, abi: BALANCE_ABI, functionName: 'balanceOf',
         args: [walletAddress as `0x${string}`],
       })
-      if (balance < amount) throw new Error('Insufficient G$ balance')
+      if (balance < amount) throw new Error('Insufficient TALLY balance')
 
       const nonce = await readContract(config, {
         address: G_TOKEN_ADDRESS, abi: NONCES_ABI, functionName: 'nonces',

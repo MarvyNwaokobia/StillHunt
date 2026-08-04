@@ -1011,7 +1011,7 @@ function FpsWorld({ hud, controls, audio, lowSpec, lightFx, minimal, mission, on
       sceneChildren: scene.children.length,
     });
     // ── Survival re-arm bridge (B1): applies a PAID re-arm's effect to the sim.
-    //    The outer component charges the G$ first, then calls these on success. ──
+    //    The outer component charges the TALLY first, then calls these on success. ──
     w.__huntRevive = () => {
       if (!survival || sim.snapshot().playerAlive) return false;
       sim.revive();
@@ -1726,7 +1726,7 @@ function FpsWorld({ hud, controls, audio, lowSpec, lightFx, minimal, mission, on
         }
 
         // A wave banks the instant its LAST room is emptied — that's the beat the
-        // "+G$ / WAVE N CLEARED" moment hangs on, not the walk to the next door.
+        // "+TALLY / WAVE N CLEARED" moment hangs on, not the walk to the next door.
         if (cur && cur.wavesEnd && cur.wave > c.bankedThrough && sim.roomAlive(cur.index + 1) === 0) {
           c.bankedThrough = cur.wave;
           endlessOpts?.onWaveCleared?.(cur.wave);
@@ -2203,7 +2203,7 @@ function FpsWorld({ hud, controls, audio, lowSpec, lightFx, minimal, mission, on
     }
   }
 
-  // ── Earn loop: XP per kill → 1000 → rank up → G$ ──
+  // ── Earn loop: XP per kill → 1000 → rank up → TALLY ──
   function popXp(amount: number) {
     const i = xpPopHead.current = (xpPopHead.current + 1) % XP_POPS;
     const el = hud.current.xpPops[i];
@@ -2224,7 +2224,7 @@ function FpsWorld({ hud, controls, audio, lowSpec, lightFx, minimal, mission, on
       hud.current.rankUpRank.textContent = rank.toUpperCase();
       hud.current.rankUpRank.style.color = RANK_COLORS[rank];
     }
-    if (hud.current.rankUpG) hud.current.rankUpG.textContent = `+${gReward(rank)} G$`;
+    if (hud.current.rankUpG) hud.current.rankUpG.textContent = `+${gReward(rank)} TALLY`;
     const el = hud.current.rankUp;
     if (el) {
       el.style.opacity = '1';
@@ -2237,7 +2237,7 @@ function FpsWorld({ hud, controls, audio, lowSpec, lightFx, minimal, mission, on
     const before = careerXp.current;
     const after = before + amount;
     careerXp.current = after; // the bar climbs LIVE as you kill — a running preview
-    // Signed in: the SERVER owns rank + G$. The live bar previews what you're earning
+    // Signed in: the SERVER owns rank + TALLY. The live bar previews what you're earning
     // (kills are real XP now, so it reconciles truthfully at op-end); the actual rank-up
     // and its payout are confirmed on the debrief, never guessed locally mid-fight.
     if (accountRank) return;
@@ -2658,14 +2658,14 @@ function MissionSelect({ current, progress, onPick, onSurvival, onGauntlet, gaun
 }
 
 /** Server-authoritative reward for a cleared op (a structural subset of the app's
- *  FightReward). The debrief shows THIS — the real XP / rank-up / G$ — never a local
- *  guess, so a rank-up and its G$ only ever appear when the server actually paid them. */
+ *  FightReward). The debrief shows THIS — the real XP / rank-up / TALLY — never a local
+ *  guess, so a rank-up and its TALLY only ever appear when the server actually paid them. */
 export interface OpReward {
   xpAwarded: number;
   rankedUp: boolean;
   newRank: string | null;
-  gAwarded: number;      // rank-up G$ actually credited (0 unless a real rank-up landed)
-  bountyAwarded: number; // first-clear G$ actually credited
+  gAwarded: number;      // rank-up TALLY actually credited (0 unless a real rank-up landed)
+  bountyAwarded: number; // first-clear TALLY actually credited
   firstClear: boolean;
 }
 
@@ -2686,16 +2686,16 @@ function MissionDebrief({ mode, cleared, next, reward, onDeploy, onRetry, onExit
   return (
     <div style={{ position: 'absolute', inset: 0, zIndex: 40, background: 'rgba(3,6,10,.97)', color: '#e9edf2', fontFamily: UI_FONT, cursor: 'auto', pointerEvents: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '30px 24px' }}>
       <div style={{ maxWidth: 620, textAlign: 'center' }}>
-        {/* The REAL, server-confirmed reward for the op just cleared. A rank-up / G$
+        {/* The REAL, server-confirmed reward for the op just cleared. A rank-up / TALLY
             line only appears when the server actually credited it. */}
         {reward && (
           <div style={{ marginBottom: 22 }}>
             <div style={{ fontSize: 14, letterSpacing: 3, color: '#5fe0a8', fontWeight: 700 }}>+{reward.xpAwarded} XP</div>
             {reward.bountyAwarded > 0 && (
-              <div style={{ fontSize: 12, letterSpacing: 2, color: '#ffcf5f', marginTop: 7 }}>{reward.firstClear ? 'FIRST CLEAR BONUS' : 'OP BOUNTY'} · +{reward.bountyAwarded} G$</div>
+              <div style={{ fontSize: 12, letterSpacing: 2, color: '#ffcf5f', marginTop: 7 }}>{reward.firstClear ? 'FIRST CLEAR BONUS' : 'OP BOUNTY'} · +{reward.bountyAwarded} TALLY</div>
             )}
             {reward.rankedUp && reward.newRank && (
-              <div style={{ fontSize: 16, letterSpacing: 3, color: '#37d0e0', fontWeight: 800, marginTop: 7 }}>RANK UP → {reward.newRank.toUpperCase()} · +{reward.gAwarded} G$</div>
+              <div style={{ fontSize: 16, letterSpacing: 3, color: '#37d0e0', fontWeight: 800, marginTop: 7 }}>RANK UP → {reward.newRank.toUpperCase()} · +{reward.gAwarded} TALLY</div>
             )}
           </div>
         )}
@@ -2739,10 +2739,10 @@ const rearmCostPreview = (action: RearmAction, wave: number): number => {
 };
 
 /**
- * Survival re-arm controls (B1 G$ sink). Self-contained + only mounted when a
+ * Survival re-arm controls (B1 TALLY sink). Self-contained + only mounted when a
  * wallet is present, so `/dev/verb` (sandbox, no wallet providers) never calls the
  * wallet hooks. Polls the sim's mission hook to know the wave + whether the player
- * is down, charges G$ via the session allowance, then applies the paid effect
+ * is down, charges TALLY via the session allowance, then applies the paid effect
  * through the __huntRevive/Resupply/WaveSkip bridge.
  */
 function SurvivalRearmControls({ walletAddress }: { walletAddress: string }) {
@@ -2769,12 +2769,12 @@ function SurvivalRearmControls({ walletAddress }: { walletAddress: string }) {
     if (busy || pending) return;
     setBusy(true); setMsg(action === 'revive' ? 'reviving…' : 'paying…');
     try {
-      if (!armed) await arm(20);                        // one signature per run (cap 20 G$)
+      if (!armed) await arm(20);                        // one signature per run (cap 20 TALLY)
       const res = await rearm(action, hud.wave);
       const ok = action === 'revive' ? bridge.__huntRevive?.() : action === 'restock' ? bridge.__huntResupply?.() : bridge.__huntWaveSkip?.();
-      setMsg(ok ? `−${res.cost_g} G$` : 'not available');
+      setMsg(ok ? `−${res.cost_g} TALLY` : 'not available');
     } catch (e) {
-      setMsg(e instanceof NeedArmError ? 'arm more G$' : ((e as Error)?.message ?? 're-arm failed'));
+      setMsg(e instanceof NeedArmError ? 'arm more TALLY' : ((e as Error)?.message ?? 're-arm failed'));
     } finally {
       setBusy(false);
       setTimeout(() => setMsg(''), 2600);
@@ -2794,7 +2794,7 @@ function SurvivalRearmControls({ walletAddress }: { walletAddress: string }) {
     return (
       <div style={{ position: 'absolute', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', pointerEvents: 'none' }}>
         <div style={{ marginTop: '58vh', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-          {chip(busy ? 'REVIVING…' : `REVIVE — ${rearmCostPreview('revive', hud.wave)} G$`, 'revive', '#5fe0a8')}
+          {chip(busy ? 'REVIVING…' : `REVIVE — ${rearmCostPreview('revive', hud.wave)} TALLY`, 'revive', '#5fe0a8')}
           {msg && <div style={{ fontSize: 11, color: '#9fb4c8', letterSpacing: 1 }}>{msg}</div>}
         </div>
       </div>
@@ -2804,10 +2804,10 @@ function SurvivalRearmControls({ walletAddress }: { walletAddress: string }) {
   // Mid-run → a small re-arm bar (resupply + skip) at bottom-centre.
   return (
     <div style={{ position: 'absolute', left: 0, right: 0, bottom: 96, zIndex: 30, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, pointerEvents: 'none' }}>
-      {chip(`RESUPPLY ${rearmCostPreview('restock', hud.wave)} G$`, 'restock', '#37d0e0')}
-      {chip(`SKIP WAVE ${rearmCostPreview('waveskip', hud.wave)} G$`, 'waveskip', '#e0b737')}
+      {chip(`RESUPPLY ${rearmCostPreview('restock', hud.wave)} TALLY`, 'restock', '#37d0e0')}
+      {chip(`SKIP WAVE ${rearmCostPreview('waveskip', hud.wave)} TALLY`, 'waveskip', '#e0b737')}
       <div style={{ fontSize: 10, color: armed ? '#5fe0a8' : '#6f7d8c', letterSpacing: 1, pointerEvents: 'none' }}>
-        {armed ? `ARMED ${capG} G$` : 'tap to arm'}{msg ? ` · ${msg}` : ''}
+        {armed ? `ARMED ${capG} TALLY` : 'tap to arm'}{msg ? ` · ${msg}` : ''}
       </div>
     </div>
   );
@@ -2893,8 +2893,8 @@ function GauntletRunController({ walletAddress }: { walletAddress: string }) {
           </div>
           {pool && (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(224,183,55,.10)', border: '1px solid #e0b73733', borderRadius: 7, padding: '7px 10px', marginBottom: 10 }}>
-              <span style={{ fontSize: 11, letterSpacing: 2, color: '#e6c766' }}>{pool.name} · POOL {pool.prize_pool_g} G$</span>
-              {mine ? <span style={{ fontSize: 11, color: mine.est_payout_g > 0 ? '#5fe0a8' : '#9fb4c8' }}>#{mine.rank} · ~{mine.est_payout_g} G$</span> : null}
+              <span style={{ fontSize: 11, letterSpacing: 2, color: '#e6c766' }}>{pool.name} · POOL {pool.prize_pool_g} TALLY</span>
+              {mine ? <span style={{ fontSize: 11, color: mine.est_payout_g > 0 ? '#5fe0a8' : '#9fb4c8' }}>#{mine.rank} · ~{mine.est_payout_g} TALLY</span> : null}
             </div>
           )}
           <div style={{ fontSize: 10, letterSpacing: 3, color: '#7f8c99', borderBottom: '1px solid #2a3440', paddingBottom: 5, marginBottom: 6 }}>
@@ -2904,7 +2904,7 @@ function GauntletRunController({ walletAddress }: { walletAddress: string }) {
             seasonRows.slice(0, 6).map((r) => (
               <div key={r.wallet_address} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '2px 0', color: r.rank === 1 ? '#e6c766' : '#c7d2dc' }}>
                 <span>{r.rank}. {short(r.username, r.wallet_address)}</span>
-                <span>{r.best}{r.est_payout_g > 0 ? <span style={{ color: '#5fe0a8' }}> · {r.est_payout_g} G$</span> : null}</span>
+                <span>{r.best}{r.est_payout_g > 0 ? <span style={{ color: '#5fe0a8' }}> · {r.est_payout_g} TALLY</span> : null}</span>
               </div>
             ))
           ) : board.length === 0 ? (
@@ -2943,7 +2943,7 @@ export function HuntScene({ onOpStart, onOpCleared, onOpFailed, startMission, re
    *  Omitted at `/dev/verb`. */
   onOpStart?: (level: number) => Promise<boolean> | void;
   /** Fires when a campaign op is cleared — `/fight` uses it to record the real,
-   *  server-authoritative reward (XP → rank → G$). Omitted at `/dev/verb`, which
+   *  server-authoritative reward (XP → rank → TALLY). Omitted at `/dev/verb`, which
    *  stays a self-contained sandbox. */
   onOpCleared?: (level: number, stats?: { kills: number; headshots: number }) => Promise<OpReward | null> | void;
   /** Fires when the player is KILLED on a campaign op (once per death). `/fight` uses
@@ -2958,7 +2958,7 @@ export function HuntScene({ onOpStart, onOpCleared, onOpFailed, startMission, re
    *  chosen, RESUME here — survives a sign-out that cleared local storage, and unlocks
    *  the board up to it (so progress is never lost to a fresh device/session). */
   resumeLevel?: number;
-  /** Signed-in wallet — enables the Survival re-arm G$ sink (B1). Omitted at
+  /** Signed-in wallet — enables the Survival re-arm TALLY sink (B1). Omitted at
    *  `/dev/verb` (sandbox) so the re-arm controls + wallet hooks never mount there. */
   walletAddress?: string;
   /** The real account rank + XP-into-rank (C1). When present, the in-game rank bar
@@ -3542,7 +3542,7 @@ export function HuntScene({ onOpStart, onOpCleared, onOpFailed, startMission, re
         <div ref={(r) => { hud.current.rankUp = r; }} style={{ position: 'absolute', left: '50%', top: '28%', transform: 'translate(-50%,-50%)', opacity: 0, transition: 'opacity .4s', pointerEvents: 'none', textAlign: 'center' }}>
           <div style={{ fontSize: 13, letterSpacing: 6, color: '#9fb4c8' }}>RANK UP</div>
           <div ref={(r) => { hud.current.rankUpRank = r; }} style={{ fontSize: 38, fontWeight: 800, letterSpacing: 4, margin: '4px 0' }}>STALKER</div>
-          <div ref={(r) => { hud.current.rankUpG = r; }} style={{ fontSize: 16, fontWeight: 700, color: '#5fe0a8' }}>+20 G$</div>
+          <div ref={(r) => { hud.current.rankUpG = r; }} style={{ fontSize: 16, fontWeight: 700, color: '#5fe0a8' }}>+20 TALLY</div>
         </div>
 
         {/* health bar — the vital stat. On touch it takes the prime top-left slot
@@ -3622,7 +3622,7 @@ export function HuntScene({ onOpStart, onOpCleared, onOpFailed, startMission, re
             <button onClick={() => { if (hud.current.survEnd) { hud.current.survEnd.style.opacity = '0'; hud.current.survEnd.style.pointerEvents = 'none'; } setSelect(true); }} style={{ pointerEvents: 'auto', cursor: 'pointer', background: 'transparent', border: '1px solid #9fb4c8', color: '#9fb4c8', fontFamily: 'inherit', fontSize: 13, letterSpacing: 3, padding: '10px 20px', borderRadius: 5 }}>{iconRow('menu', 'OPERATIONS', 14)}</button>
           </div>
         </div>
-        {/* Survival re-arm G$ sink (B1) — only with a wallet; sandbox stays local */}
+        {/* Survival re-arm TALLY sink (B1) — only with a wallet; sandbox stays local */}
         {walletAddress && <SurvivalRearmControls walletAddress={walletAddress} />}
         {/* Prestige Gauntlet run token + ranked result (B2) */}
         {walletAddress && <GauntletRunController walletAddress={walletAddress} />}
@@ -3850,7 +3850,7 @@ export function HuntScene({ onOpStart, onOpCleared, onOpFailed, startMission, re
 
       {/* ── Server-readiness gate: no session token, no fight ── */}
       {/* Blocks the op until the server confirms a session, so a cold/asleep server can
-          never let you play a run that silently won't count (XP / rank / G$). */}
+          never let you play a run that silently won't count (XP / rank / TALLY). */}
       {gate !== 'ok' && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 70, background: 'radial-gradient(circle at 50% 40%, #0b1018, #05070b)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#cfe0ea', textAlign: 'center', fontFamily: UI_FONT, pointerEvents: 'auto', padding: 24 }}>
           {gate === 'connecting' ? (

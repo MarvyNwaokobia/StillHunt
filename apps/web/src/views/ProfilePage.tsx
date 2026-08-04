@@ -201,7 +201,7 @@ export default function ProfilePage() {
           </p>
         </div>
 
-        {/* Go to Bank — G$ balance, earnings breakdown, transfer out */}
+        {/* Go to Bank — TALLY balance, earnings breakdown, transfer out */}
         <Link
           href="/bank"
           className="flex items-center justify-between px-4 py-3 rounded-xl border transition-colors hover:border-amber-500/50"
@@ -211,7 +211,7 @@ export default function ProfilePage() {
             <Wallet size={16} className="text-amber-400" />
             <span className="font-bold text-white text-sm">Go to Bank</span>
           </div>
-          <span className="text-[9px] uppercase tracking-widest text-amber-500/70 font-bold">G$ · Claim · Transfer</span>
+          <span className="text-[9px] uppercase tracking-widest text-amber-500/70 font-bold">TALLY · Claim · Transfer</span>
         </Link>
 
         {/* Telegram — same ask as onboarding, kept reachable afterwards. A player
@@ -306,7 +306,7 @@ export default function ProfilePage() {
             </p>
             <p className="text-slate-500 text-xs mt-1 leading-relaxed">
               A public page with your rank, record and loadout. Sharing it posts a preview
-              of your warrior — and anyone who joins through it earns you 100 G$.
+              of your warrior — and anyone who joins through it earns you 100 TALLY.
             </p>
             {/* The count is the whole point of the loop: someone who can see
                 three recruits is far likelier to share a fourth time. */}
@@ -314,7 +314,7 @@ export default function ProfilePage() {
               <p className="text-hunt-gold text-xs font-bold mt-2">
                 {referrals.recruited} warrior{referrals.recruited === 1 ? '' : 's'} recruited
                 {' · '}
-                {referrals.earned_g.toLocaleString()} G$ earned
+                {referrals.earned_g.toLocaleString()} TALLY earned
               </p>
             )}
           </div>

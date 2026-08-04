@@ -31,7 +31,7 @@ export interface WaveResult {
 export function useEndlessProgress(walletAddress: string | undefined, seasonId?: string) {
   const sessionRef = useRef<string | null>(null)
   const [wave, setWave] = useState(1)
-  const [banked, setBanked] = useState(0) // G$ earned this session
+  const [banked, setBanked] = useState(0) // TALLY earned this session
   const [ready, setReady] = useState(false)
 
   const body = useCallback(
@@ -89,7 +89,7 @@ export function useEndlessProgress(walletAddress: string | undefined, seasonId?:
     }
   }, [walletAddress, body])
 
-  /** Report a cleared wave. The server credits it, pays the G$ and records the win. */
+  /** Report a cleared wave. The server credits it, pays the TALLY and records the win. */
   const clearWave = useCallback(async (): Promise<WaveResult | null> => {
     const post = async (session_id: string) =>
       fetch(`${API}/endless/wave`, {

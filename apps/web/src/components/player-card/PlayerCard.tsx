@@ -10,7 +10,7 @@ import { RANK_DEFINITIONS } from '@/lib/ranks'
 import { getDecayStatus } from '@/utils/decay'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080'
-import { formatGDollarNumber, formatTimeAgo } from '@/utils/format'
+import { formatTallyNumber, formatTimeAgo } from '@/utils/format'
 import { useGBalance } from '@/hooks/useGBalance'
 import XpMeter from './XpMeter'
 import RankBadge from './RankBadge'
@@ -177,7 +177,7 @@ export default function PlayerCard({ player, isPublic = false, showShareLink = f
           <StatBox label="SPD" value={player.speed_stat} color="#22c55e" />
         </div>
 
-        {/* W/L + G$ balance / lifetime earnings */}
+        {/* W/L + TALLY balance / lifetime earnings */}
         <div className="flex items-center justify-between text-sm border-t border-hunt-border pt-3">
           <div className="flex items-center gap-3">
             <span className="text-slate-400 text-xs">
@@ -193,7 +193,7 @@ export default function PlayerCard({ player, isPublic = false, showShareLink = f
               <span className="font-bold text-hunt-gold text-sm">{liveBalance}</span>
             )}
             <span className="text-xs text-slate-500">
-              {formatGDollarNumber(player.g_earned_lifetime)} earned
+              {formatTallyNumber(player.g_earned_lifetime)} earned
             </span>
           </div>
         </div>

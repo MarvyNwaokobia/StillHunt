@@ -14,7 +14,7 @@ import { CELO_CHAIN_ID } from '@/lib/magic'
 // Keeping it to wallets-only is the whole safety argument. Web3Auth's social
 // logins would mint NEW embedded wallets, so the same person signing in with
 // Google via Magic and via Web3Auth would end up holding two different
-// addresses — which orphans their rank, items and G$, and is the exact pattern
+// addresses — which orphans their rank, items and TALLY, and is the exact pattern
 // behind the GoodDollar one-face dedup that un-whitelisted ~44% of our wallets
 // (see apps/api/migrations/add_magic_identity.sql). An external wallet has no
 // such problem: the address belongs to the player already and we only ever read

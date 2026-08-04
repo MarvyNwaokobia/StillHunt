@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'StillHunt · One human. One warrior.',
-  description: 'StillHunt · One human. One warrior. Fight, earn real G$, own everything. Built on GoodDollar + Celo.',
+  description: 'StillHunt · One human. One warrior. Fight, earn real TALLY, own everything. Built on GoodDollar + Celo.',
   icons: {
     icon: [
       { url: '/hunt-icon-16.png', sizes: '16x16', type: 'image/png' },

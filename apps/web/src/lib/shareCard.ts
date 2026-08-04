@@ -28,8 +28,8 @@ export async function shareCard(wallet: string, name?: string): Promise<ShareOut
   const payload = {
     title: name ? `${name} · StillHunt` : 'StillHunt player card',
     text: name
-      ? `${name} is fighting for real G$ on StillHunt.`
-      : 'One human. One fighter. Earn real G$ on Celo.',
+      ? `${name} is fighting for real TALLY on StillHunt.`
+      : 'One human. One fighter. Earn real TALLY on Celo.',
     url,
   }
 

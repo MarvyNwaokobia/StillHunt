@@ -163,9 +163,9 @@ export function useDuels(walletAddress: string | undefined) {
    * Sign an EIP-2612 permit for EXACTLY this stake.
    *
    * One signature per stake, rather than the survival re-arm's standing session
-   * allowance. That allowance is capped at 50 G$ because it authorises many
-   * signature-free spends mid-run — every duel stake starts at 100 G$, so it was
-   * rejected outright ("Arm cap must be between 1 and 50 G$"). Raising that
+   * allowance. That allowance is capped at 50 TALLY because it authorises many
+   * signature-free spends mid-run — every duel stake starts at 100 TALLY, so it was
+   * rejected outright ("Arm cap must be between 1 and 50 TALLY"). Raising that
    * ceiling would have loosened a safety bound belonging to another feature; a
    * per-stake permit is both correct and more honest, since the player authorises
    * the exact figure the confirmation screen just showed them.
@@ -190,7 +190,7 @@ export function useDuels(walletAddress: string | undefined) {
       address: G_TOKEN_ADDRESS, abi: BALANCE_ABI, functionName: 'balanceOf',
       args: [walletAddress as `0x${string}`],
     })
-    if (balance < amount) throw new Error('Not enough G$ for this stake')
+    if (balance < amount) throw new Error('Not enough TALLY for this stake')
 
     const nonce = await readContract(config, {
       address: G_TOKEN_ADDRESS, abi: NONCES_ABI, functionName: 'nonces',

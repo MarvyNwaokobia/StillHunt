@@ -7,7 +7,7 @@ export interface LedgerSummary {
   gameplay_earned: number
   marketplace_spent: number
   transferred_out: number
-  /** Earned G$ whose on-chain transfer hasn't landed yet. Settles by itself. */
+  /** Earned TALLY whose on-chain transfer hasn't landed yet. Settles by itself. */
   pending_payout: number
 }
 

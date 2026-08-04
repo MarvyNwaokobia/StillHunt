@@ -210,7 +210,7 @@ export default function BattlePvP({ player, walletAddress, onBack }: Props) {
             style={{ background: 'rgba(8,8,14,0.95)', borderColor: 'rgba(42,42,58,0.8)' }}>
             <Stat label="XP Earned" value={`+${state.result.xp_earned}`} color={won ? '#eab308' : '#64748b'} />
             {state.result.g_earned > 0 && (
-              <Stat label="G$ Earned" value={`+${state.result.g_earned}`} color="#22c55e" />
+              <Stat label="TALLY Earned" value={`+${state.result.g_earned}`} color="#22c55e" />
             )}
           </div>
           <div className="flex gap-3 w-full">

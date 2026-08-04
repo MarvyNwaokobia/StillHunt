@@ -17,7 +17,7 @@ export const RANK_COLORS: Record<Rank, string> = {
   Apex: '#b9f2ff',
 }
 
-// G$ for REACHING a rank — it GROWS with the rank (500 more each step): the higher you
+// TALLY for REACHING a rank — it GROWS with the rank (500 more each step): the higher you
 // climb, the bigger the payout. Mirrors the server's rank_up_reward_g (STEP × ordinal)
 // in apps/api battles.rs. Drifter is the start (never reached via a rank-up).
 export const RANK_G_REWARD: Record<Rank, number> = {
@@ -56,7 +56,7 @@ export function xpForNextRank(rank: Rank): number {
 }
 
 /**
- * G$ paid for the player's NEXT promotion. RANK_G_REWARD is keyed by the rank being
+ * TALLY paid for the player's NEXT promotion. RANK_G_REWARD is keyed by the rank being
  * REACHED, so reading it with the player's current rank shows what they were already
  * paid, not what they are climbing toward (a Tracker player saw "next rank reward: 500"
  * when Stalker actually pays 1000). At the top the next step is a prestige, which pays

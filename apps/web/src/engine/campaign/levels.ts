@@ -11,7 +11,7 @@
  * Difficulty ramps on four axes AT ONCE — enemy gun tier, AIDifficulty, HP
  * multiplier and class — so a higher level FEELS harder, not just bigger-
  * numbered. Bosses sit on every 5th level (5/10/15): more HP, a signature
- * gun, their own stage. G$ comes solely from the existing rank-up at 1000 XP.
+ * gun, their own stage. TALLY comes solely from the existing rank-up at 1000 XP.
  *
  * Beyond level 15 the player unlocks Endless mode (separate module) for the
  * all-time + weekly leaderboards.

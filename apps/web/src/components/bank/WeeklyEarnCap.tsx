@@ -5,9 +5,9 @@ import { useQuery } from '@tanstack/react-query'
 const API = process.env.NEXT_PUBLIC_API_URL ?? ''
 
 interface EarnCapStatus {
-  earned_this_week_g: number
-  cap_g: number
-  remaining_g: number
+  earned_this_week: number
+  cap: number
+  remaining: number
   over_cap: boolean
   over_cap_rate: number
   resets_at: string
@@ -21,7 +21,7 @@ interface EarnCapStatus {
  * like a payout bug. Showing the number turns a support message into a player
  * who knows where they stand.
  *
- * Hidden entirely when capping is off (cap_g = 0) or the player has earned
+ * Hidden entirely when capping is off (cap = 0) or the player has earned
  * nothing yet — an empty bar on a fresh account is noise, not information.
  */
 export default function WeeklyEarnCap({ walletAddress }: { walletAddress?: string }) {
@@ -36,10 +36,17 @@ export default function WeeklyEarnCap({ walletAddress }: { walletAddress?: strin
     staleTime: 60_000,
   })
 
-  if (!data || data.cap_g === 0 || data.earned_this_week_g === 0) return null
+  // Read defensively rather than trusting the shape. This panel white-screened
+  // the entire app once, because the API renamed these fields and the component
+  // called .toLocaleString() on the undefined that came back. A Bank widget being
+  // out of date with the server is a reason to render nothing, never a reason to
+  // take the game down — the error boundary above it is global.
+  const earned = typeof data?.earned_this_week === 'number' ? data.earned_this_week : null
+  const cap = typeof data?.cap === 'number' ? data.cap : null
+  if (earned === null || cap === null || cap === 0 || earned === 0) return null
 
-  const pct = Math.min(100, Math.round((data.earned_this_week_g / data.cap_g) * 100))
-  const resets = new Date(data.resets_at)
+  const pct = Math.min(100, Math.round((earned / cap) * 100))
+  const resets = new Date(data?.resets_at ?? Date.now())
   const daysLeft = Math.max(0, Math.ceil((resets.getTime() - Date.now()) / 86_400_000))
 
   return (
@@ -52,8 +59,8 @@ export default function WeeklyEarnCap({ walletAddress }: { walletAddress?: strin
           Earned this week
         </p>
         <p className="text-xs font-bold text-slate-300 tabular-nums">
-          {data.earned_this_week_g.toLocaleString()}
-          <span className="text-slate-600"> / {data.cap_g.toLocaleString()} G$</span>
+          {earned.toLocaleString()}
+          <span className="text-slate-600"> / {cap.toLocaleString()} TALLY</span>
         </p>
       </div>
 
@@ -62,7 +69,7 @@ export default function WeeklyEarnCap({ walletAddress }: { walletAddress?: strin
           className="h-full rounded-full transition-all"
           style={{
             width: `${pct}%`,
-            background: data.over_cap
+            background: data?.over_cap
               ? 'linear-gradient(90deg,#b45309,#78350f)'
               : 'linear-gradient(90deg,#fde047,#eab308)',
           }}
@@ -70,15 +77,15 @@ export default function WeeklyEarnCap({ walletAddress }: { walletAddress?: strin
       </div>
 
       <p className="text-[11px] leading-relaxed text-slate-500">
-        {data.over_cap ? (
+        {data?.over_cap ? (
           <>
             You&apos;ve reached this week&apos;s cap. Rewards still pay at{' '}
-            <span className="text-amber-400 font-bold">{Math.round(data.over_cap_rate * 100)}%</span>{' '}
+            <span className="text-amber-400 font-bold">{Math.round((data?.over_cap_rate ?? 0) * 100)}%</span>{' '}
             until it resets{daysLeft > 0 ? ` in ${daysLeft} day${daysLeft === 1 ? '' : 's'}` : ' tomorrow'}.
           </>
         ) : (
           <>
-            {data.remaining_g.toLocaleString()} G$ left at full rate. Resets
+            {(cap - earned).toLocaleString()} TALLY left at full rate. Resets
             {daysLeft > 0 ? ` in ${daysLeft} day${daysLeft === 1 ? '' : 's'}` : ' tomorrow'}. Prizes
             don&apos;t count towards it.
           </>

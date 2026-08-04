@@ -28,10 +28,10 @@ export class NeedArmError extends Error {
 }
 
 /**
- * Survival re-arm — the B1 G$ sink (Model C: session allowance).
+ * Survival re-arm — the B1 TALLY sink (Model C: session allowance).
  * `arm(cap)` is signed ONCE at run start (an EIP-2612 permit granting the backend
- * relay an allowance of `cap` G$). After that every `rearm()` spends against that
- * allowance with NO further signature — instant, non-custodial, G$ flows straight
+ * relay an allowance of `cap` TALLY). After that every `rearm()` spends against that
+ * allowance with NO further signature — instant, non-custodial, TALLY flows straight
  * into the RewardPool. Mirrors the transfer-out permit primitive.
  */
 export function useSurvivalRearm(walletAddress: string | undefined) {
@@ -42,7 +42,7 @@ export function useSurvivalRearm(walletAddress: string | undefined) {
   const [armed, setArmed] = useState(false)
   const [capG, setCapG] = useState(0)
 
-  /** Sign one permit granting the relay an allowance of `cap` G$ for this run. */
+  /** Sign one permit granting the relay an allowance of `cap` TALLY for this run. */
   const arm = async (cap: number): Promise<void> => {
     if (!walletAddress) throw new Error('Not signed in')
     if (!walletClient?.account) throw new Error('Wallet not connected')

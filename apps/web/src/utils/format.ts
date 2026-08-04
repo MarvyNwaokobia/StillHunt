@@ -1,12 +1,12 @@
 import { formatUnits } from 'viem'
 
-export function formatGDollar(raw: bigint, decimals = 18): string {
+export function formatTally(raw: bigint, decimals = 18): string {
   const value = parseFloat(formatUnits(raw, decimals))
   if (value >= 1000) return `${(value / 1000).toFixed(1)}k`
   return value.toFixed(2)
 }
 
-export function formatGDollarNumber(value: number): string {
+export function formatTallyNumber(value: number): string {
   if (value >= 1000) return `${(value / 1000).toFixed(1)}k`
   return value.toFixed(2)
 }
