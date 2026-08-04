@@ -140,7 +140,7 @@ const CHAPTER_2: Chapter = {
       stageId: 'lava_arena',
       enemies: [
         { classId: 'berserker', difficulty: 'hard', name: 'Forge Master', level: 7 },
-        { classId: 'sentinel', difficulty: 'hard', name: 'Iron Guardian', level: 7 },
+        { classId: 'sentinel', difficulty: 'hard', name: 'Drifter Guardian', level: 7 },
       ],
       nextZoneId: 'ch2_z3',
       prevZoneId: 'ch2_z1',

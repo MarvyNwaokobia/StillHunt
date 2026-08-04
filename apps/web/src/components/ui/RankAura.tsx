@@ -45,7 +45,7 @@ export default function RankAura({ rank, classColor, mode = 'character', childre
   // Character stage mode — wraps the warrior display area
   return (
     <div className="relative w-full h-full">
-      {/* Aura ring layers — only Silver+ */}
+      {/* Aura ring layers — only Stalker+ */}
       {def.hasAura && (
         <>
           {/* Outer slow pulse */}
@@ -70,7 +70,7 @@ export default function RankAura({ rank, classColor, mode = 'character', childre
         </>
       )}
 
-      {/* Armor light sweep — Gold+ */}
+      {/* Armor light sweep — Marksman+ */}
       {def.armorLight && (
         <motion.div
           className="absolute inset-0 pointer-events-none overflow-hidden rounded-sm"
@@ -89,7 +89,7 @@ export default function RankAura({ rank, classColor, mode = 'character', childre
         </motion.div>
       )}
 
-      {/* Diamond particles — rising embers */}
+      {/* Apex particles — rising embers */}
       {def.hasParticles && (
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           {particles.map(p => (

@@ -18,7 +18,7 @@ import { ConnectButton } from '@/components/ui/ConnectButton'
 
 type Step = 'covenant' | 'telegram' | 'select' | 'confirm' | 'tutorial'
 
-const PREFIXES = ['Iron','Dark','Storm','Ash','Void','Flame','Shadow','Silver','Crimson','Frost','Thunder','Ember','Blood','Death','War']
+const PREFIXES = ['Drifter','Dark','Storm','Ash','Void','Flame','Shadow','Stalker','Crimson','Frost','Thunder','Ember','Blood','Death','War']
 const SUFFIXES = ['Blade','Fist','Heart','Walker','Strike','Guard','Born','Wolf','Hawk','Bane','Forge','Rift','Claw','Rage','Fire']
 
 function deterministicName(wallet: string) {
@@ -192,7 +192,7 @@ export default function OnboardingPage() {
         display_name:            null,
         character_class:         selectedClass,
         character_customization: {},
-        rank:                    'Bronze' as const,
+        rank:                    'Tracker' as const,
         xp:                      0,
         attack_stat:             stats.attack,
         defense_stat:            stats.defense,

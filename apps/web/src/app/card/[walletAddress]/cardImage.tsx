@@ -55,7 +55,7 @@ export async function renderCardImage(walletAddress: string): Promise<ImageRespo
     player = null
   }
 
-  const rank: Rank = player?.rank && RANK_DEFINITIONS[player.rank] ? player.rank : 'Iron'
+  const rank: Rank = player?.rank && RANK_DEFINITIONS[player.rank] ? player.rank : 'Drifter'
   const def = RANK_DEFINITIONS[rank]
   const name = player?.character_name || player?.username || 'Unclaimed Warrior'
   const handle = player?.username ? `@${player.username}` : null

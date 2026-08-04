@@ -1,6 +1,5 @@
 use actix_web::{web, HttpRequest, HttpResponse};
 use chrono::{DateTime, Utc};
-use ethers::types::Address;
 use serde::Serialize;
 use serde_json::json;
 use sqlx::FromRow;
@@ -224,19 +223,17 @@ pub async fn payout_preview(req: HttpRequest, state: web::Data<AppState>, path: 
         .sum();
 
     // Can it actually complete? Money and gas are the two ways this fails half-way.
-    let (pool_balance_g, pool_address, relay_celo) = match state.chain.as_ref() {
-        Some(chain) => {
-            let addr = chain.reward_pool_address();
-            let bal = match addr {
-                Some(a) => chain.g_balance(a).await.ok().map(|b| (b / ethers::types::U256::exp10(18)).as_u64() as i64),
-                None => None,
-            };
-            let celo = chain.celo_balance(chain.relay_address()).await.ok()
-                .map(|c| c.as_u128() as f64 / 1e18);
-            (bal, addr.map(|a| format!("{:?}", a)), celo)
-        }
-        None => (None, None, None),
-    };
+    // There is no prize pool to check a balance against: a season prize accrues
+    // to the winner exactly like every other reward, and mints when they claim.
+    // What CAN still fail is gas for the record writes, so that is what is read.
+    let (pool_balance_g, pool_address, relay_celo): (Option<i64>, Option<String>, Option<f64>) =
+        match state.chain.as_ref() {
+            Some(chain) => {
+                let gas = chain.relay_gas_balance().await.map(|b| b.as_u128() as f64 / 1e18);
+                (None, Some(format!("{:?}", chain.relay_address())), gas)
+            }
+            None => (None, None, None),
+        };
 
     let now = Utc::now();
     let closed = season.ends_at.map(|e| e <= now).unwrap_or(false);
@@ -294,7 +291,7 @@ pub async fn payout(req: HttpRequest, state: web::Data<AppState>, path: web::Pat
             "ends_at": ends_at.to_rfc3339(),
         }));
     }
-    let Some(chain) = state.chain.as_ref().cloned() else {
+    let Some(_chain) = state.chain.as_ref().cloned() else {
         return HttpResponse::ServiceUnavailable().json(json!({"error": "Chain relay not available"}));
     };
 
@@ -325,7 +322,7 @@ pub async fn payout(req: HttpRequest, state: web::Data<AppState>, path: web::Pat
     let attempted = rows.len();
     let mut paid = 0u32;
     for (wallet, amount) in rows {
-        if settle_season_payout(&state.db, &chain, season_id, &wallet, amount.max(0) as u64).await {
+        if settle_season_payout(&state.db, season_id, &wallet, amount.max(0) as u64).await {
             paid += 1;
         }
     }
@@ -344,17 +341,13 @@ pub async fn payout(req: HttpRequest, state: web::Data<AppState>, path: web::Pat
     }))
 }
 
-/// Distribute one season prize on-chain + reconcile the row/ledger. Mirrors the
-/// first-clear bounty settle: an on-chain `ref` keyed to (season, wallet) makes every
-/// re-attempt idempotent, and an already-used ref reconciles to paid without gas.
+/// Accrue one season prize. Idempotent per (season, wallet, chunk).
 async fn settle_season_payout(
     db: &sqlx::PgPool,
-    chain: &crate::services::chain::ChainWriter,
     season_id: Uuid,
     wallet: &str,
     amount: u64,
 ) -> bool {
-    let Ok(addr) = wallet.parse::<Address>() else { return false; };
 
     // StillHuntRewardPool.MAX_REWARD caps a SINGLE distributeReward at 10,000 G$ and
     // reverts anything larger, so a season prize (Season 1 pays ~85,500 G$ a head)
@@ -371,29 +364,25 @@ async fn settle_season_payout(
         left -= take;
     }
 
-    let mut last_hash: Option<String> = None;
-    let mut all_ok = true;
+    let last_hash: Option<String> = None;
+    let all_ok = true;
     for (i, chunk) in chunks.iter().enumerate() {
-        let reference = ethers::utils::keccak256(
-            format!("season_payout:{}:{}:{}", season_id, wallet, i).as_bytes(),
-        );
-        let already = chain.reward_ref_used(reference).await.unwrap_or(false);
-        // Some(hash) = paid by THIS settle; None = landed in an earlier tx we no longer know.
-        let result = if already {
-            Ok(Some(None))
-        } else {
-            chain.distribute_reward(addr, *chunk, reference).await.map(|r| r.map(Some))
-        };
-        match result {
-            Ok(Some(h)) => { if h.is_some() { last_hash = h; } }
-            Ok(None) | Err(_) => {
-                tracing::error!(
-                    "season payout chunk {}/{} FAILED for {} ({} G$) — re-run the payout to resume",
-                    i + 1, chunks.len(), wallet, chunk,
-                );
-                all_ok = false;
-                break; // stop on the first failure; the rest stay unpaid and retryable
-            }
+        // Accrual, not a transfer. A season prize is the same kind of thing as a
+        // first clear — it lands in the winner's balance and mints when they
+        // claim it — so it cannot half-pay across chunks the way a sequence of
+        // on-chain sends could.
+        let credited = crate::services::earnings::award(
+            db,
+            wallet,
+            "season_prize",
+            rust_decimal::Decimal::from(*chunk),
+            &format!("season_payout:{season_id}:{wallet}:{i}"),
+        ).await;
+        if !credited {
+            tracing::info!(
+                "season payout chunk {}/{} for {} was already recorded",
+                i + 1, chunks.len(), wallet,
+            );
         }
     }
 
@@ -412,7 +401,6 @@ async fn settle_season_payout(
             crate::handlers::battles::log_write_failure("season g_earned_lifetime credit", wallet, &credited_locally);
             crate::handlers::ledger::insert_ledger_entry(
                 db, wallet, "season_reward", rust_decimal::Decimal::from(amount), tx_hash.as_deref(), None,
-                crate::services::chain_id::ChainId::Celo,
             ).await;
             tracing::info!("season payout paid: {} +{} G$ in {} tx", wallet, amount, chunks.len());
             true

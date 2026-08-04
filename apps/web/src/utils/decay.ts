@@ -19,13 +19,13 @@ export function getDecayTimeRemaining(lastActive: string): number {
 }
 
 export function getRankDowngrade(rank: Player['rank']): Player['rank'] | null {
-  const ranks: Player['rank'][] = ['Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond']
+  const ranks: Player['rank'][] = ['Tracker', 'Stalker', 'Marksman', 'Ranger', 'Apex']
   const idx = ranks.indexOf(rank)
   return idx > 0 ? ranks[idx - 1] : null
 }
 
 export function getRankUpgrade(rank: Player['rank']): Player['rank'] | null {
-  const ranks: Player['rank'][] = ['Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond']
+  const ranks: Player['rank'][] = ['Tracker', 'Stalker', 'Marksman', 'Ranger', 'Apex']
   const idx = ranks.indexOf(rank)
   return idx < ranks.length - 1 ? ranks[idx + 1] : null
 }

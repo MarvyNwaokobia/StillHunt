@@ -6,49 +6,49 @@ use sqlx::FromRow;
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type, PartialEq)]
 #[sqlx(type_name = "text", rename_all = "PascalCase")]
 pub enum Rank {
-    Iron,
-    Bronze,
-    Silver,
-    Gold,
-    Platinum,
-    Emerald,
-    Diamond,
+    Drifter,
+    Tracker,
+    Stalker,
+    Marksman,
+    Ranger,
+    Ghost,
+    Apex,
 }
 
 impl Rank {
     pub fn g_reward(&self) -> u64 {
         match self {
-            Rank::Iron => 5,
-            Rank::Bronze => 10,
-            Rank::Silver => 20,
-            Rank::Gold => 40,
-            Rank::Platinum => 80,
-            Rank::Emerald => 120,
-            Rank::Diamond => 150,
+            Rank::Drifter => 5,
+            Rank::Tracker => 10,
+            Rank::Stalker => 20,
+            Rank::Marksman => 40,
+            Rank::Ranger => 80,
+            Rank::Ghost => 120,
+            Rank::Apex => 150,
         }
     }
 
     pub fn next(&self) -> Option<Rank> {
         match self {
-            Rank::Iron => Some(Rank::Bronze),
-            Rank::Bronze => Some(Rank::Silver),
-            Rank::Silver => Some(Rank::Gold),
-            Rank::Gold => Some(Rank::Platinum),
-            Rank::Platinum => Some(Rank::Emerald),
-            Rank::Emerald => Some(Rank::Diamond),
-            Rank::Diamond => None,
+            Rank::Drifter => Some(Rank::Tracker),
+            Rank::Tracker => Some(Rank::Stalker),
+            Rank::Stalker => Some(Rank::Marksman),
+            Rank::Marksman => Some(Rank::Ranger),
+            Rank::Ranger => Some(Rank::Ghost),
+            Rank::Ghost => Some(Rank::Apex),
+            Rank::Apex => None,
         }
     }
 
     pub fn prev(&self) -> Option<Rank> {
         match self {
-            Rank::Iron => None,
-            Rank::Bronze => Some(Rank::Iron),
-            Rank::Silver => Some(Rank::Bronze),
-            Rank::Gold => Some(Rank::Silver),
-            Rank::Platinum => Some(Rank::Gold),
-            Rank::Emerald => Some(Rank::Platinum),
-            Rank::Diamond => Some(Rank::Emerald),
+            Rank::Drifter => None,
+            Rank::Tracker => Some(Rank::Drifter),
+            Rank::Stalker => Some(Rank::Tracker),
+            Rank::Marksman => Some(Rank::Stalker),
+            Rank::Ranger => Some(Rank::Marksman),
+            Rank::Ghost => Some(Rank::Ranger),
+            Rank::Apex => Some(Rank::Ghost),
         }
     }
 }
@@ -94,7 +94,7 @@ pub struct Player {
     pub losses: i32,
     pub pve_level: i32, // highest PvE Campaign level cleared (0 = none)
     #[serde(default)]
-    pub prestige_level: i32, // 0 until the player climbs past Diamond; then Diamond I, II, III…
+    pub prestige_level: i32, // 0 until the player climbs past Apex; then Apex I, II, III…
     #[serde(default)]
     pub character_confirmed: bool, // false for chain-reconstructed players → prompt confirm-class
     pub created_at: DateTime<Utc>,

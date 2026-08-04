@@ -417,11 +417,11 @@ impl GameServer {
                 let _ = sqlx::query(
                     "UPDATE players
                      SET rank = CASE
-                       WHEN xp >= 4000 AND rank != 'Diamond'  THEN 'Diamond'
-                       WHEN xp >= 3000 AND rank = 'Platinum'  THEN 'Diamond'
-                       WHEN xp >= 2000 AND rank = 'Gold'      THEN 'Platinum'
-                       WHEN xp >= 1000 AND rank = 'Silver'    THEN 'Gold'
-                       WHEN xp >= 500  AND rank = 'Bronze'    THEN 'Silver'
+                       WHEN xp >= 4000 AND rank != 'Apex'  THEN 'Apex'
+                       WHEN xp >= 3000 AND rank = 'Ranger'  THEN 'Apex'
+                       WHEN xp >= 2000 AND rank = 'Marksman'      THEN 'Ranger'
+                       WHEN xp >= 1000 AND rank = 'Stalker'    THEN 'Marksman'
+                       WHEN xp >= 500  AND rank = 'Tracker'    THEN 'Stalker'
                        ELSE rank
                      END
                      WHERE wallet_address = $1",

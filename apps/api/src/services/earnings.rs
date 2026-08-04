@@ -26,7 +26,6 @@ use rust_decimal::Decimal;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::services::chain_id::ChainId;
 
 /// A claim that has been opened and had earnings attached, but not yet paid.
 #[derive(Debug, Clone)]
@@ -48,7 +47,6 @@ pub struct OpenClaim {
 pub async fn award(
     db: &PgPool,
     wallet: &str,
-    chain: ChainId,
     category: &str,
     amount: Decimal,
     ref_key: &str,
@@ -59,7 +57,7 @@ pub async fn award(
          ON CONFLICT (wallet_address, ref) DO NOTHING",
     )
     .bind(wallet)
-    .bind(chain.as_i32())
+    .bind(crate::services::chain::CHAIN_ID as i32)
     .bind(category)
     .bind(amount)
     .bind(ref_key)
@@ -83,19 +81,103 @@ pub async fn award(
 /// Zero for an unknown wallet or a read error. Returning zero on error is the safe
 /// direction here: it shows a player less than they have and they retry, rather
 /// than offering a claim the database cannot back.
-pub async fn balance(db: &PgPool, wallet: &str, chain: ChainId) -> Decimal {
+pub async fn balance(db: &PgPool, wallet: &str) -> Decimal {
     sqlx::query_scalar::<_, Decimal>(
-        "SELECT COALESCE(SUM(amount), 0) FROM earnings
-          WHERE wallet_address = $1 AND chain_id = $2 AND claim_id IS NULL",
+        "SELECT COALESCE((SELECT SUM(amount) FROM earnings
+                           WHERE wallet_address = $1 AND chain_id = $2 AND claim_id IS NULL), 0)
+              - COALESCE((SELECT SUM(amount) FROM spends
+                           WHERE wallet_address = $1), 0)",
     )
     .bind(wallet)
-    .bind(chain.as_i32())
+    .bind(crate::services::chain::CHAIN_ID as i32)
     .fetch_one(db)
     .await
     .unwrap_or_else(|e| {
         tracing::error!("Failed to read earnings balance for {}: {}", wallet, e);
         Decimal::ZERO
     })
+}
+
+/// Why a spend was refused.
+#[derive(Debug, PartialEq, Eq)]
+pub enum SpendError {
+    /// The balance does not cover it. Carries what they actually have.
+    Insufficient(Decimal),
+    /// The database refused the write.
+    Failed,
+}
+
+/// Debits `amount` from the accrued balance.
+///
+/// THE CHECK AND THE DEBIT ARE ONE TRANSACTION, and that is the whole point. Two
+/// re-arms firing a few milliseconds apart would otherwise both read the same
+/// balance, both decide it covers the cost, and both insert — spending the same
+/// TALLY twice. The `SELECT ... FOR UPDATE`-equivalent here is doing the sum
+/// inside the transaction that also writes, so the second one sees the first.
+///
+/// Idempotent on `ref_key`: a retried request debits once. `Ok(false)` means the
+/// spend was already recorded, which callers should treat as success.
+pub async fn spend(
+    db: &PgPool,
+    wallet: &str,
+    category: &str,
+    amount: Decimal,
+    ref_key: &str,
+) -> Result<bool, SpendError> {
+    if amount <= Decimal::ZERO {
+        return Err(SpendError::Failed);
+    }
+
+    let mut tx = db.begin().await.map_err(|e| {
+        tracing::error!("spend: could not open transaction for {}: {}", wallet, e);
+        SpendError::Failed
+    })?;
+
+    // Lock this wallet's earning rows for the duration, so a concurrent spend
+    // waits here rather than reading a balance that is about to change.
+    let available: Decimal = sqlx::query_scalar(
+        "SELECT COALESCE((SELECT SUM(amount) FROM earnings
+                           WHERE wallet_address = $1 AND chain_id = $2 AND claim_id IS NULL
+                           FOR UPDATE), 0)
+              - COALESCE((SELECT SUM(amount) FROM spends WHERE wallet_address = $1), 0)",
+    )
+    .bind(wallet)
+    .bind(crate::services::chain::CHAIN_ID as i32)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(|e| {
+        tracing::error!("spend: balance read failed for {}: {}", wallet, e);
+        SpendError::Failed
+    })?;
+
+    if available < amount {
+        return Err(SpendError::Insufficient(available));
+    }
+
+    let inserted = sqlx::query(
+        "INSERT INTO spends (wallet_address, category, amount, ref)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (wallet_address, ref) DO NOTHING",
+    )
+    .bind(wallet)
+    .bind(category)
+    .bind(amount)
+    .bind(ref_key)
+    .execute(&mut *tx)
+    .await
+    .map_err(|e| {
+        tracing::error!("spend: insert failed for {} ({}): {}", wallet, category, e);
+        SpendError::Failed
+    })?
+    .rows_affected()
+        > 0;
+
+    tx.commit().await.map_err(|e| {
+        tracing::error!("spend: commit failed for {}: {}", wallet, e);
+        SpendError::Failed
+    })?;
+
+    Ok(inserted)
 }
 
 /// Opens a claim and attaches every unclaimed earning for this wallet and chain.
@@ -111,8 +193,8 @@ pub async fn balance(db: &PgPool, wallet: &str, chain: ChainId) -> Decimal {
 ///
 /// The claim is left `pending` on purpose. Paying is a separate step because it
 /// talks to a chain and can fail; see `settle_claim` / `fail_claim`.
-pub async fn open_claim(db: &PgPool, wallet: &str, chain: ChainId) -> Option<OpenClaim> {
-    let chain_id = chain.as_i32();
+pub async fn open_claim(db: &PgPool, wallet: &str) -> Option<OpenClaim> {
+    let chain_id = crate::services::chain::CHAIN_ID as i32;
 
     let mut tx = match db.begin().await {
         Ok(t) => t,

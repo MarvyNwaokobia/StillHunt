@@ -76,7 +76,7 @@ export async function renderCardPortrait(walletAddress: string): Promise<ImageRe
     player = null
   }
 
-  const rank: Rank = player?.rank && RANK_DEFINITIONS[player.rank] ? player.rank : 'Iron'
+  const rank: Rank = player?.rank && RANK_DEFINITIONS[player.rank] ? player.rank : 'Drifter'
   const def = RANK_DEFINITIONS[rank]
   const classDef = player?.character_class
     ? CLASS_DEFINITIONS[player.character_class as keyof typeof CLASS_DEFINITIONS]

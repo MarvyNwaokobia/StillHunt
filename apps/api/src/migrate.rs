@@ -53,6 +53,7 @@ const MIGRATIONS: &[(&str, &str)] = &[
     // so anything sorting before "add_g…" would hit a table that does not exist
     // yet on a fresh database and abort boot.
     ("add_multichain_attribution.sql", include_str!("../migrations/add_multichain_attribution.sql")),
+    ("add_onchain_duel_id.sql", include_str!("../migrations/add_onchain_duel_id.sql")),
     ("add_op_play_bounties.sql",  include_str!("../migrations/add_op_play_bounties.sql")),
     ("add_player_edition.sql",    include_str!("../migrations/add_player_edition.sql")),
     ("add_prestige_and_tiers.sql", include_str!("../migrations/add_prestige_and_tiers.sql")),
@@ -77,10 +78,14 @@ const MIGRATIONS: &[(&str, &str)] = &[
     // Placed earlier it would seed 20 of 25 prices and report success — a silent
     // partial that only shows up as an unbuyable gun on Avalanche.
     ("add_avalanche_item_prices.sql", include_str!("../migrations/add_avalanche_item_prices.sql")),
+    ("add_spends.sql",           include_str!("../migrations/add_spends.sql")),
     ("add_survival_rearms.sql",   include_str!("../migrations/add_survival_rearms.sql")),
     ("fix_decimal_columns.sql",   include_str!("../migrations/fix_decimal_columns.sql")),
     ("fix_ledger_categories.sql", include_str!("../migrations/fix_ledger_categories.sql")),
     ("fix_xp_cap.sql",            include_str!("../migrations/fix_xp_cap.sql")),
+    // LAST on purpose: a data migration that rewrites rows in tables the
+    // migrations above create. Running it earlier would hit a missing table.
+    ("rename_ranks.sql",        include_str!("../migrations/rename_ranks.sql")),
 ];
 
 /// Apply every migration not yet recorded, in order, each in its own transaction. Called

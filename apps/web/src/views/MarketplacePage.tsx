@@ -22,7 +22,7 @@ export default function MarketplacePage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45 }}
       >
-        {/* Gold left accent */}
+        {/* Marksman left accent */}
         <div className="absolute inset-y-0 left-0 w-1 rounded-l-2xl" style={{ background: 'linear-gradient(180deg, #fde047, #eab308, #b45309)' }}/>
         {/* Glow */}
         <div className="absolute inset-0 pointer-events-none" style={{

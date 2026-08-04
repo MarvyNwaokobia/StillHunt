@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { Crosshair, Wind, ChevronUp, type LucideIcon } from 'lucide-react';
 import { Action, getInputSystem } from './InputSystem';
 
-const GOLD = '#eab308';
+const MARKSMAN = '#eab308';
 
 interface TouchButtonProps {
   action: Action;
@@ -68,7 +68,7 @@ export function TouchControls() {
       if (!el) return;
       const a = Math.max(0, Math.min(1, amount));
       el.style.opacity = String(0.28 + a * 0.72);
-      el.style.filter = a > 0.05 ? `drop-shadow(0 0 ${4 + a * 8}px ${GOLD})` : 'none';
+      el.style.filter = a > 0.05 ? `drop-shadow(0 0 ${4 + a * 8}px ${MARKSMAN})` : 'none';
     };
 
     const handleMove = (clientX: number, clientY: number) => {
@@ -157,10 +157,10 @@ export function TouchControls() {
         }}
       >
         {/* Directional arrows (chevrons), lit toward the drag */}
-        <div ref={arrowUp}    className="absolute top-1.5 left-1/2 -translate-x-1/2"                style={{ color: GOLD, opacity: 0.28 }}><ChevronUp size={20} strokeWidth={3} /></div>
-        <div ref={arrowDown}  className="absolute bottom-1.5 left-1/2 -translate-x-1/2 rotate-180" style={{ color: GOLD, opacity: 0.28 }}><ChevronUp size={20} strokeWidth={3} /></div>
-        <div ref={arrowLeft}  className="absolute left-1.5 top-1/2 -translate-y-1/2 -rotate-90"    style={{ color: GOLD, opacity: 0.28 }}><ChevronUp size={20} strokeWidth={3} /></div>
-        <div ref={arrowRight} className="absolute right-1.5 top-1/2 -translate-y-1/2 rotate-90"    style={{ color: GOLD, opacity: 0.28 }}><ChevronUp size={20} strokeWidth={3} /></div>
+        <div ref={arrowUp}    className="absolute top-1.5 left-1/2 -translate-x-1/2"                style={{ color: MARKSMAN, opacity: 0.28 }}><ChevronUp size={20} strokeWidth={3} /></div>
+        <div ref={arrowDown}  className="absolute bottom-1.5 left-1/2 -translate-x-1/2 rotate-180" style={{ color: MARKSMAN, opacity: 0.28 }}><ChevronUp size={20} strokeWidth={3} /></div>
+        <div ref={arrowLeft}  className="absolute left-1.5 top-1/2 -translate-y-1/2 -rotate-90"    style={{ color: MARKSMAN, opacity: 0.28 }}><ChevronUp size={20} strokeWidth={3} /></div>
+        <div ref={arrowRight} className="absolute right-1.5 top-1/2 -translate-y-1/2 rotate-90"    style={{ color: MARKSMAN, opacity: 0.28 }}><ChevronUp size={20} strokeWidth={3} /></div>
 
         {/* Analog knob */}
         <div

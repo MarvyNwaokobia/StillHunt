@@ -167,7 +167,7 @@ export function VictoryScreen({
             <span className="text-yellow-400 font-bold">+{rewards.xpGained}</span>
           </div>
           <div className="flex justify-between text-sm mb-3">
-            <span className="text-white/50">Gold Earned</span>
+            <span className="text-white/50">Marksman Earned</span>
             <span className="text-amber-400 font-bold">+{rewards.goldGained}</span>
           </div>
 

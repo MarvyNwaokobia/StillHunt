@@ -1,13 +1,11 @@
 use actix_web::{web, HttpResponse};
 
 pub mod players;
-pub mod identity;
 pub mod battles;
 pub mod missions;
 pub mod items;
 pub mod decay;
 pub mod duels;
-pub mod rewards;
 pub mod ws;
 pub mod endless;
 pub mod survival;
@@ -16,7 +14,6 @@ pub mod seasons;
 pub mod claims;
 pub mod ledger;
 pub mod debts;
-pub mod gas;
 pub mod admin;
 pub mod consistency;
 pub mod client_errors;
@@ -64,14 +61,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
         // Read-only self-audit; the cron fails its job when this reports trouble.
         .route("/health/consistency", web::post().to(consistency::run_consistency_check))
         .route("/relay-address", web::get().to(ledger::get_relay_address))
-        .route("/withdraw-fee", web::get().to(ledger::get_withdraw_fee))
-        // Which reward pools this server actually loaded — see get_pools.
-        .route("/pools", web::get().to(ledger::get_pools))
         .route("/ws/battle", web::get().to(ws::battle_ws))
-        .service(
-            web::scope("/identity")
-                .route("/verify/{wallet}", web::get().to(identity::verify_identity)),
-        )
         .service(
             web::scope("/players")
                 .route("", web::get().to(players::list_players))
@@ -99,10 +89,8 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 // every win and has no accrued balance to claim.
                 .route("/{wallet}/claimable", web::get().to(claims::get_claimable))
                 .route("/{wallet}/claim", web::post().to(claims::claim))
-                .route("/{wallet}/transfer", web::post().to(ledger::transfer_out))
                 .route("/{wallet}/debt", web::get().to(debts::get_debt))
-                .route("/{wallet}/settle-debt", web::post().to(debts::settle_debt))
-                .route("/{wallet}/gas-topup", web::post().to(gas::gas_topup)),
+                .route("/{wallet}/settle-debt", web::post().to(debts::settle_debt)),
         )
         .service(
             web::scope("/battles")
@@ -111,7 +99,6 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 .route("/fight/start", web::post().to(battles::start_live_fight))
                 .route("/fight/complete", web::post().to(battles::complete_live_fight))
                 .route("/pvp/complete", web::post().to(battles::complete_pvp_match))
-                .route("/bounties/reconcile", web::post().to(battles::reconcile_first_clear_bounties))
                 .route("/challenge", web::post().to(battles::challenge_player)),
         )
         .service(
@@ -137,10 +124,6 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
         .service(
             web::scope("/decay")
                 .route("/run", web::post().to(decay::run_decay_sweep)),
-        )
-        .service(
-            web::scope("/rewards")
-                .route("/sign-claim", web::post().to(rewards::sign_engagement_claim)),
         )
         .service(
             web::scope("/endless")
@@ -178,7 +161,6 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 .route("/seasons/{id}/fund", web::post().to(seasons::fund))
                 .route("/seasons/{id}/payout-preview", web::get().to(seasons::payout_preview))
                 .route("/seasons/{id}/payout", web::post().to(seasons::payout))
-                .route("/referrals/retry", web::post().to(players::retry_referrals)),
         )
         .service(
             web::scope("/seasons")

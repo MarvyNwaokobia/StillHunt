@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { RANK_DEFINITIONS, rankLabel } from '@/lib/ranks'
 import type { Rank } from '@/types/database'
 
-const RANKS: Rank[] = ['Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond']
+const RANKS: Rank[] = ['Tracker', 'Stalker', 'Marksman', 'Ranger', 'Apex']
 
 describe('RANK_DEFINITIONS', () => {
   it('has all 5 ranks defined', () => {
@@ -11,21 +11,21 @@ describe('RANK_DEFINITIONS', () => {
     }
   })
 
-  it('tier numbers are strictly ascending Bronze→Diamond', () => {
+  it('tier numbers are strictly ascending Tracker→Apex', () => {
     for (let i = 1; i < RANKS.length; i++) {
       expect(RANK_DEFINITIONS[RANKS[i]].tier).toBeGreaterThan(RANK_DEFINITIONS[RANKS[i - 1]].tier)
     }
   })
 
-  it('Bronze has no aura or particles (raw warrior)', () => {
-    const bronze = RANK_DEFINITIONS['Bronze']
+  it('Tracker has no aura or particles (raw warrior)', () => {
+    const bronze = RANK_DEFINITIONS['Tracker']
     expect(bronze.hasAura).toBe(false)
     expect(bronze.hasParticles).toBe(false)
     expect(bronze.armorLight).toBe(false)
   })
 
-  it('Diamond has all visual effects enabled', () => {
-    const diamond = RANK_DEFINITIONS['Diamond']
+  it('Apex has all visual effects enabled', () => {
+    const diamond = RANK_DEFINITIONS['Apex']
     expect(diamond.hasAura).toBe(true)
     expect(diamond.hasParticles).toBe(true)
     expect(diamond.armorLight).toBe(true)

@@ -1,11 +1,9 @@
 use anyhow::{anyhow, Result};
 use ethers::{
-    abi::AbiParser,
     providers::{Http, Middleware, Provider},
     types::{Address, BlockNumber, Filter, Log, H256, U256},
 };
 use sqlx::PgPool;
-use std::str::FromStr;
 
 /// Listens for `ItemPurchased(address buyer, uint256 itemId, uint256 price)` events
 /// from StillHuntMarketplace and writes authoritative inventory rows to Supabase.

@@ -3520,7 +3520,7 @@ export function HuntScene({ onOpStart, onOpCleared, onOpFailed, startMission, re
         {/* rank + XP toward the next 1000 (the earn loop). On touch it lives TOP-left,
             clear of the movement thumb (it used to sit under the joystick). */}
         <div style={{ position: 'absolute', left: isTouch ? 14 : 26, width: isTouch ? 150 : 210, ...(isTouch ? { top: 58 } : { bottom: 48 }) }}>
-          <div ref={(r) => { hud.current.rankText = r; }} style={{ fontSize: 12, letterSpacing: 1.5, fontWeight: 700, color: '#cd7f32' }}>BRONZE · 0 / 1000 XP</div>
+          <div ref={(r) => { hud.current.rankText = r; }} style={{ fontSize: 12, letterSpacing: 1.5, fontWeight: 700, color: '#cd7f32' }}>TRACKER · 0 / 1000 XP</div>
           <div style={{ width: '100%', height: 4, background: '#2b3138', marginTop: 4, borderRadius: 2 }}>
             <div ref={(r) => { hud.current.xpBar = r; }} style={{ width: '0%', height: '100%', background: '#cd7f32', borderRadius: 2 }} />
           </div>
@@ -3541,7 +3541,7 @@ export function HuntScene({ onOpStart, onOpCleared, onOpFailed, startMission, re
         {/* RANK UP beat */}
         <div ref={(r) => { hud.current.rankUp = r; }} style={{ position: 'absolute', left: '50%', top: '28%', transform: 'translate(-50%,-50%)', opacity: 0, transition: 'opacity .4s', pointerEvents: 'none', textAlign: 'center' }}>
           <div style={{ fontSize: 13, letterSpacing: 6, color: '#9fb4c8' }}>RANK UP</div>
-          <div ref={(r) => { hud.current.rankUpRank = r; }} style={{ fontSize: 38, fontWeight: 800, letterSpacing: 4, margin: '4px 0' }}>SILVER</div>
+          <div ref={(r) => { hud.current.rankUpRank = r; }} style={{ fontSize: 38, fontWeight: 800, letterSpacing: 4, margin: '4px 0' }}>STALKER</div>
           <div ref={(r) => { hud.current.rankUpG = r; }} style={{ fontSize: 16, fontWeight: 700, color: '#5fe0a8' }}>+20 G$</div>
         </div>
 

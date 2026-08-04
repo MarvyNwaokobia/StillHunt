@@ -16,7 +16,7 @@ const okFetch = () =>
     ok: true,
     json: async () => ({
       battle_id: 'b1',
-      winner: { wallet: '0xwin', xp_awarded: 100, ranked_up: true, new_rank: 'Silver', g_awarded: 20 },
+      winner: { wallet: '0xwin', xp_awarded: 100, ranked_up: true, new_rank: 'Stalker', g_awarded: 20 },
       loser: { wallet: '0xlose', xp_awarded: 30, ranked_up: false, new_rank: null, g_awarded: 0 },
     }),
   })) as unknown as typeof fetch

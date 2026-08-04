@@ -14,13 +14,12 @@ mod utils;
 
 pub struct AppState {
     pub db:                sqlx::PgPool,
-    pub rewards:           Option<services::rewards::RewardService>,
     pub chain:             Option<services::chain::ChainWriter>,
     /// The Avalanche C-Chain relay. `None` until the contracts are deployed and
     /// AVALANCHE_PRIVATE_KEY + AVALANCHE_GAME_RECORD_CONTRACT are set, which is
     /// harmless: nothing is written there and the Celo game is unaffected.
-    pub avalanche:         Option<services::avalanche::AvalancheWriter>,
-    pub battle_limiter:    services::rate_limiter::RateLimiter,
+    pub avalanche:         Option<services::chain::ChainWriter>,
+    pub battle_limiter:    std::sync::Arc<services::rate_limiter::RateLimiter>,
     pub game_server:       services::game_server::GameServerHandle,
     pub bot_fight_sessions: std::sync::Arc<DashMap<Uuid, services::battle::BotFightSession>>,
     pub live_fight_sessions: std::sync::Arc<DashMap<Uuid, services::battle::LiveFightSession>>,
@@ -52,16 +51,12 @@ async fn main() -> anyhow::Result<()> {
     // A failure aborts boot on purpose (better than serving on a half-migrated schema).
     migrate::run(&db).await?;
 
-    let rewards = services::rewards::RewardService::from_env()
-        .map_err(|e| tracing::warn!("Reward service disabled: {}", e))
-        .ok();
-
     let chain = services::chain::ChainWriter::from_env();
     if chain.is_none() {
         tracing::info!("ChainWriter disabled (GAME_RECORD_CONTRACT not set)");
     }
 
-    let avalanche = services::avalanche::AvalancheWriter::from_env();
+    let avalanche = services::chain::ChainWriter::from_env();
     match &avalanche {
         None => tracing::info!(
             "Avalanche relay disabled (AVALANCHE_PRIVATE_KEY / AVALANCHE_GAME_RECORD_CONTRACT not set)"
@@ -94,9 +89,15 @@ async fn main() -> anyhow::Result<()> {
         tracing::info!("Event listener disabled (MARKETPLACE_CONTRACT not set)");
     }
 
-    // Rate limiter — shared across all workers via AppState (DashMap is Send + Sync)
-    // battle_limiter: 10 requests / 60s per IP
-    let battle_limiter = services::rate_limiter::RateLimiter::new(10, 60);
+    // Rate limiter: 10 requests / 60s per IP, SHARED across every worker.
+    //
+    // The Arc is the whole point. This used to be constructed inside the
+    // HttpServer closure, which runs once per worker thread — so each worker got
+    // its own counters and the real limit was 10 x worker_count, silently. The
+    // compiler said so (`unused variable: battle_limiter`) and it went unread for
+    // a long time. Cloning an Arc here means every worker increments the same
+    // buckets, which is what the limit is supposed to mean.
+    let battle_limiter = std::sync::Arc::new(services::rate_limiter::RateLimiter::new(10, 60));
     let game_server    = services::game_server::GameServerHandle::spawn(db.clone());
 
     // In-progress bot fights — keyed by session id, shared across all workers
@@ -141,10 +142,9 @@ async fn main() -> anyhow::Result<()> {
         App::new()
             .app_data(web::Data::new(AppState {
                 db:             db.clone(),
-                rewards:        rewards.clone(),
                 chain:          chain.clone(),
                 avalanche:      avalanche.clone(),
-                battle_limiter: services::rate_limiter::RateLimiter::new(10, 60),
+                battle_limiter: battle_limiter.clone(),
                 game_server:    game_server.clone(),
                 bot_fight_sessions: bot_fight_sessions.clone(),
                 live_fight_sessions: live_fight_sessions.clone(),

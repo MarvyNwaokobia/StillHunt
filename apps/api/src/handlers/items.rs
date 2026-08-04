@@ -4,6 +4,7 @@ use serde::Deserialize;
 use serde_json::json;
 use uuid::Uuid;
 
+use rust_decimal::prelude::ToPrimitive;
 use crate::AppState;
 use crate::models::item::Item;
 use crate::utils::normalize_wallet;
@@ -42,8 +43,7 @@ pub async fn list_items(state: web::Data<AppState>) -> HttpResponse {
             let mut by_item: std::collections::HashMap<uuid::Uuid, std::collections::HashMap<String, f64>> =
                 std::collections::HashMap::new();
             for (item_id, chain_id, price) in rows {
-                use rust_decimal::prelude::ToPrimitive;
-                if let Some(p) = price.to_f64() {
+                                if let Some(p) = price.to_f64() {
                     by_item.entry(item_id).or_default().insert(chain_id.to_string(), p);
                 }
             }
@@ -177,45 +177,10 @@ pub async fn purchase_item_relay(
 
     // Which chain the buyer signed against. Absent = Celo, so every existing client
     // is unaffected.
-    let target = match body.chain_id {
-        None => crate::services::chain_id::ChainId::Celo,
-        Some(id) => match crate::services::chain_id::ChainId::from_i32(id) {
-            Some(c) => c,
-            // An unknown id must NOT silently become Celo. Doing so would relay a
-            // permit the buyer signed for some other chain against the Celo
-            // marketplace, which reverts and costs them a signature for nothing.
-            None => return HttpResponse::BadRequest()
-                .json(json!({"error": format!("Unknown chain {id}")})),
-        },
-    };
-
-    // The price this purchase is denominated in. Celo reads price_g; every other
-    // chain reads its own row. This is only used for the LEDGER — the contract
-    // charges from its own listing — but the two must agree or reporting drifts
-    // away from what actually moved.
-    let charged_price: rust_decimal::Decimal = match target {
-        crate::services::chain_id::ChainId::Celo => item.price_g,
-        other => {
-            let p: Option<rust_decimal::Decimal> = sqlx::query_scalar(
-                "SELECT price FROM item_chain_prices WHERE item_id = $1 AND chain_id = $2",
-            )
-            .bind(item_id)
-            .bind(other.as_i32())
-            .fetch_optional(&state.db)
-            .await
-            .unwrap_or(None);
-
-            match p {
-                Some(price) => price,
-                // Not sold on that chain. Refuse rather than fall back to the Celo
-                // price, which is the exact substitution that makes a permit
-                // signature disagree with the on-chain listing and revert.
-                None => return HttpResponse::BadRequest().json(json!({
-                    "error": format!("This item is not sold for {}", other.currency_symbol()),
-                })),
-            }
-        }
-    };
+    // The price this purchase is denominated in. Used for the LEDGER only — the
+    // contract charges from its own listing — but the two must agree or reporting
+    // drifts away from what actually moved.
+    let charged_price: rust_decimal::Decimal = item.price_g;
 
     let tx_hash: String;
 
@@ -236,8 +201,8 @@ pub async fn purchase_item_relay(
             }))
         };
 
-        let relay_result = match target {
-            crate::services::chain_id::ChainId::Celo => {
+        let relay_result = {
+
                 let chain = match state.chain.as_ref() {
                     Some(c) => c,
                     None => return HttpResponse::ServiceUnavailable()
@@ -250,26 +215,12 @@ pub async fn purchase_item_relay(
                 chain
                     .purchase_item_for(buyer, on_chain_id as u64, body.deadline, body.v, &body.r, &body.s)
                     .await
-            }
-            crate::services::chain_id::ChainId::Avalanche => {
-                let av = match state.avalanche.as_ref() {
-                    Some(a) if a.can_sell() => a,
-                    _ => return HttpResponse::ServiceUnavailable()
-                        .json(json!({"error": "SCRP purchases are not enabled yet"})),
-                };
-                if !av.relay_can_pay().await {
-                    tracing::error!("AVALANCHE RELAY OUT OF GAS — refusing SCRP purchase for {}", wallet);
-                    return relay_dry_error();
-                }
-                av.purchase_item_for(buyer, on_chain_id as u64, body.deadline, body.v, &body.r, &body.s)
-                    .await
-            }
         };
 
         tx_hash = match relay_result {
             Ok(hash) => format!("{:?}", hash),
             Err(e) => {
-                tracing::warn!("purchase relay failed for {} on {:?}: {}", wallet, target, e);
+                tracing::warn!("purchase relay failed for {}: {}", wallet, e);
                 if crate::services::chain::is_out_of_gas(&e) {
                     return HttpResponse::ServiceUnavailable().json(json!({
                         "error": "StillHunt's relay ran out of gas mid-purchase. You have not been \
@@ -306,25 +257,11 @@ pub async fn purchase_item_relay(
 
     crate::handlers::ledger::insert_ledger_entry(
         &state.db, &wallet, "marketplace_purchase", charged_price, Some(&tx_hash), None,
-        target,
     ).await;
 
-    // Recirculate shop revenue: sweep what this purchase just added into the reward
-    // pool (the prize pool that pays battles / rank-ups / bounties). On-chain items
-    // only — off-chain items move no G$. Fire-and-forget so it never blocks or fails
-    // the purchase response; the sweep is a no-op if nothing has accrued.
-    // Celo only: this sweeps shop revenue back into the G$ reward pool that pays
-    // bounties. Avalanche has no such pool — SCRP revenue accumulates in the
-    // marketplace contract and is earmarked for the future AVAX exit instead.
-    if item.on_chain_id.is_some() && target == crate::services::chain_id::ChainId::Celo {
-        if let Some(chain) = state.chain.as_ref().cloned() {
-            tokio::spawn(async move {
-                if let Err(e) = chain.sweep_revenue_to_pool().await {
-                    tracing::warn!("marketplace revenue sweep failed: {}", e);
-                }
-            });
-        }
-    }
+    // Shop revenue stays in the marketplace contract. There is no reward pool to
+    // recirculate it into, and that is the point: it accumulates as real revenue
+    // earmarked for the TALLY exit, rather than being recycled into payouts.
 
     tracing::info!("Purchase confirmed: item={} buyer={} tx={}", item_id, wallet, tx_hash);
 

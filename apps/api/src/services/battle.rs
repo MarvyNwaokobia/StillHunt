@@ -78,13 +78,13 @@ impl CharacterClass {
 
 fn bot_stats_for_rank(rank: &str) -> (i32, i32) {
     match rank {
-        "Iron" => (8, 8),
-        "Bronze" => (10, 10),
-        "Silver" => (15, 15),
-        "Gold" => (20, 20),
-        "Platinum" => (25, 25),
-        "Emerald" => (28, 28),
-        "Diamond" => (30, 30),
+        "Drifter" => (8, 8),
+        "Tracker" => (10, 10),
+        "Stalker" => (15, 15),
+        "Marksman" => (20, 20),
+        "Ranger" => (25, 25),
+        "Ghost" => (28, 28),
+        "Apex" => (30, 30),
         _ => (10, 10),
     }
 }
@@ -507,9 +507,9 @@ mod tests {
 
     #[test]
     fn bot_stats_scale_with_rank() {
-        let (b_atk, _) = bot_stats_for_rank("Bronze");
-        let (s_atk, _) = bot_stats_for_rank("Silver");
-        let (g_atk, _) = bot_stats_for_rank("Gold");
+        let (b_atk, _) = bot_stats_for_rank("Tracker");
+        let (s_atk, _) = bot_stats_for_rank("Stalker");
+        let (g_atk, _) = bot_stats_for_rank("Marksman");
         assert!(b_atk < s_atk && s_atk < g_atk);
     }
 
@@ -617,7 +617,7 @@ mod tests {
     // ── Fight loop (BotFightSession) ──────────────────────────────────────────
 
     fn make_session(player_class: CharacterClass, bot_class: CharacterClass) -> BotFightSession {
-        let player = make_player("Bronze", 12, 10);
+        let player = make_player("Tracker", 12, 10);
         let mut session = BotFightSession::new("0xtest".into(), &player, 1);
         session.player_class = player_class;
         session.bot_class = bot_class;
@@ -673,26 +673,26 @@ mod tests {
     #[test]
     fn rank_next_progression() {
         use crate::models::player::Rank;
-        assert_eq!(Rank::Iron.next(),     Some(Rank::Bronze));
-        assert_eq!(Rank::Bronze.next(),   Some(Rank::Silver));
-        assert_eq!(Rank::Silver.next(),   Some(Rank::Gold));
-        assert_eq!(Rank::Platinum.next(), Some(Rank::Emerald));
-        assert_eq!(Rank::Emerald.next(),  Some(Rank::Diamond));
-        assert_eq!(Rank::Diamond.next(),  None); // top rank → prestige instead
+        assert_eq!(Rank::Drifter.next(),     Some(Rank::Tracker));
+        assert_eq!(Rank::Tracker.next(),   Some(Rank::Stalker));
+        assert_eq!(Rank::Stalker.next(),   Some(Rank::Marksman));
+        assert_eq!(Rank::Ranger.next(), Some(Rank::Ghost));
+        assert_eq!(Rank::Ghost.next(),  Some(Rank::Apex));
+        assert_eq!(Rank::Apex.next(),  None); // top rank → prestige instead
     }
 
     #[test]
     fn rank_prev_regression() {
         use crate::models::player::Rank;
-        assert_eq!(Rank::Diamond.prev(), Some(Rank::Emerald));
-        assert_eq!(Rank::Bronze.prev(),  Some(Rank::Iron));
-        assert_eq!(Rank::Iron.prev(),    None); // Iron is the floor
+        assert_eq!(Rank::Apex.prev(), Some(Rank::Ghost));
+        assert_eq!(Rank::Tracker.prev(),  Some(Rank::Drifter));
+        assert_eq!(Rank::Drifter.prev(),    None); // Drifter is the floor
     }
 
     #[test]
     fn rank_g_reward_scales() {
-        let bronze  = crate::models::player::Rank::Bronze.g_reward();
-        let diamond = crate::models::player::Rank::Diamond.g_reward();
+        let bronze  = crate::models::player::Rank::Tracker.g_reward();
+        let diamond = crate::models::player::Rank::Apex.g_reward();
         assert!(diamond > bronze);
     }
 }

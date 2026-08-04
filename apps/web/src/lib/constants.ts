@@ -4,49 +4,49 @@ export const CELO_ALFAJORES_CHAIN_ID = 44787
 export const G_TOKEN_ADDRESS = '0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A' as const
 export const SUPERFLUID_CFA_FORWARDER = '0xcfA132E353cB4E398080B9700609bb008eceB125' as const
 
-export const RANKS = ['Iron', 'Bronze', 'Silver', 'Gold', 'Platinum', 'Emerald', 'Diamond'] as const
+export const RANKS = ['Drifter', 'Tracker', 'Stalker', 'Marksman', 'Ranger', 'Ghost', 'Apex'] as const
 export type Rank = (typeof RANKS)[number]
 
 export const RANK_COLORS: Record<Rank, string> = {
-  Iron: '#8a8f98',
-  Bronze: '#cd7f32',
-  Silver: '#c0c0c0',
-  Gold: '#ffd700',
-  Platinum: '#e5e4e2',
-  Emerald: '#34d399',
-  Diamond: '#b9f2ff',
+  Drifter: '#8a8f98',
+  Tracker: '#cd7f32',
+  Stalker: '#c0c0c0',
+  Marksman: '#ffd700',
+  Ranger: '#e5e4e2',
+  Ghost: '#34d399',
+  Apex: '#b9f2ff',
 }
 
 // G$ for REACHING a rank — it GROWS with the rank (500 more each step): the higher you
 // climb, the bigger the payout. Mirrors the server's rank_up_reward_g (STEP × ordinal)
-// in apps/api battles.rs. Iron is the start (never reached via a rank-up).
+// in apps/api battles.rs. Drifter is the start (never reached via a rank-up).
 export const RANK_G_REWARD: Record<Rank, number> = {
-  Iron: 500,       // unused (you start here)
-  Bronze: 500,     // 1st rank-up
-  Silver: 1000,    // 2nd
-  Gold: 1500,      // 3rd
-  Platinum: 2000,  // 4th
-  Emerald: 2500,   // 5th
-  Diamond: 3000,   // 6th
+  Drifter: 500,       // unused (you start here)
+  Tracker: 500,     // 1st rank-up
+  Stalker: 1000,    // 2nd
+  Marksman: 1500,      // 3rd
+  Ranger: 2000,  // 4th
+  Ghost: 2500,   // 5th
+  Apex: 3000,   // 6th
 }
 
 // XP to REACH each rank: the size of the bar you fill while sitting at the rank below.
 // PROGRESSIVE, so the first rank stays cheap (it carries retention) while the top stays
 // rare (it carries prestige). A flat cost was the old design error: at 5000 flat, the
 // entire 15-op campaign played perfectly (~2610 XP) could not buy even one rank.
-// Calibrated so Bronze lands in the first session and one full campaign clear lands Gold.
+// Calibrated so Tracker lands in the first session and one full campaign clear lands Marksman.
 // MUST match RANK_STEP_XP in apps/api battles.rs.
 export const RANK_STEP_XP: Record<Rank, number> = {
-  Iron: 0,          // the floor — never reached via a rank-up
-  Bronze: 400,      // 1st rank-up, ~op 3 of the first run
-  Silver: 900,      // 2nd, mid-campaign
-  Gold: 1300,       // 3rd, one full campaign clear
-  Platinum: 2500,   // 4th
-  Emerald: 4500,    // 5th
-  Diamond: 8000,    // 6th
+  Drifter: 0,          // the floor — never reached via a rank-up
+  Tracker: 400,      // 1st rank-up, ~op 3 of the first run
+  Stalker: 900,      // 2nd, mid-campaign
+  Marksman: 1300,       // 3rd, one full campaign clear
+  Ranger: 2500,   // 4th
+  Ghost: 4500,    // 5th
+  Apex: 8000,    // 6th
 }
 
-// Past Diamond every prestige costs this, forever (uncapped).
+// Past Apex every prestige costs this, forever (uncapped).
 export const PRESTIGE_STEP_XP = 8000
 
 /** Size of the XP bar for a player currently AT `rank` — what they must fill to advance. */
@@ -58,13 +58,13 @@ export function xpForNextRank(rank: Rank): number {
 /**
  * G$ paid for the player's NEXT promotion. RANK_G_REWARD is keyed by the rank being
  * REACHED, so reading it with the player's current rank shows what they were already
- * paid, not what they are climbing toward (a Bronze player saw "next rank reward: 500"
- * when Silver actually pays 1000). At the top the next step is a prestige, which pays
- * the Diamond rate.
+ * paid, not what they are climbing toward (a Tracker player saw "next rank reward: 500"
+ * when Stalker actually pays 1000). At the top the next step is a prestige, which pays
+ * the Apex rate.
  */
 export function nextRankReward(rank: Rank): number {
   const next = RANKS[RANKS.indexOf(rank) + 1]
-  return RANK_G_REWARD[next ?? 'Diamond']
+  return RANK_G_REWARD[next ?? 'Apex']
 }
 
 /** Total career XP needed to legitimately hold `rank` (cumulative down the curve). */

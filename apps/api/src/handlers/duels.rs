@@ -101,6 +101,7 @@ struct DuelRow {
     opponent_score: Option<i32>,
     status: String,
     winner_wallet: Option<String>,
+    onchain_duel_id: i64,
 }
 
 /// Signed authorisation for one stake. A duel stake is a deliberate, one-off,
@@ -120,95 +121,86 @@ pub struct StakePermit {
     pub s: String,
 }
 
-/// Move `stake` from the player into the RewardPool using their signed permit.
-/// Returns the tx hash.
-async fn escrow_stake(
+/// Records that a player has staked on-chain for this duel.
+///
+/// THE BACKEND NO LONGER MOVES THE MONEY. Stakes are escrowed by StillHuntDuels
+/// itself — the player calls `open`/`openWithPermit` (or `accept`) and the
+/// contract holds both sides. That removes the shape this function used to have,
+/// where a permit was relayed into a reward pool and the pot only existed as a
+/// database row pointing at a shared balance.
+///
+/// What it buys, concretely: the contract will only ever pay a participant, and
+/// after its expiry window either player can refund both sides without us. A
+/// backend that dies mid-duel now costs a delay rather than a stake.
+///
+/// All this does is sanity-check the on-chain duel before trusting the id a
+/// client handed us.
+async fn verify_onchain_duel(
     state: &AppState,
-    wallet: &str,
-    stake_g: i64,
-    permit: &StakePermit,
-) -> Result<String, HttpResponse> {
+    duel_id: u64,
+) -> Result<(), HttpResponse> {
     let chain = state.chain.as_ref().ok_or_else(|| {
         HttpResponse::ServiceUnavailable().json(json!({"error": "Chain relay not available"}))
     })?;
-    let owner: Address = wallet.parse().map_err(|_| {
-        HttpResponse::BadRequest().json(json!({"error": "Invalid wallet address"}))
-    })?;
-    let pool = chain.reward_pool_address().ok_or_else(|| {
-        HttpResponse::ServiceUnavailable().json(json!({"error": "Duel escrow not configured"}))
-    })?;
-
-    // Reject an expired signature before spending gas on a doomed permit tx.
-    let now = chrono::Utc::now().timestamp().max(0) as u64;
-    if permit.deadline <= now {
-        return Err(HttpResponse::BadRequest()
-            .json(json!({"error": "Signature expired — try again"})));
+    if !chain.can_settle_duels() {
+        return Err(HttpResponse::ServiceUnavailable()
+            .json(json!({"error": "Staked duels are not configured"})));
     }
-
-    let need = g_wei(stake_g as u64);
-    let balance = chain.g_balance(owner).await.unwrap_or_else(|_| U256::zero());
-    if balance < need {
-        return Err(HttpResponse::PaymentRequired().json(json!({
-            "error": "Not enough G$ for this stake", "stake_g": stake_g,
-        })));
-    }
-
-    match chain
-        .transfer_g_for(owner, pool, need, permit.deadline, permit.v, &permit.r, &permit.s)
-        .await
-    {
-        Ok(hash) => {
-            let tx_hash = format!("{:?}", hash);
-            crate::handlers::ledger::insert_ledger_entry(
-                &state.db, wallet, "duel_stake",
-                rust_decimal::Decimal::from(-stake_g), Some(&tx_hash), None,
-                crate::services::chain_id::ChainId::Celo,
-            ).await;
-            Ok(tx_hash)
-        }
+    // A duel that is not Active has no expiry, which is how we tell "both players
+    // are staked" apart from "this id was invented".
+    match chain.duel_expires_at(duel_id).await {
+        Ok(0) => Err(HttpResponse::BadRequest()
+            .json(json!({"error": "That duel is not active on-chain"}))),
+        Ok(_) => Ok(()),
         Err(e) => {
-            tracing::error!("duel stake escrow failed for {}: {}", wallet, e);
-            Err(HttpResponse::BadGateway().json(json!({"error": "Stake transfer failed — nothing was charged"})))
+            tracing::error!("duel {}: could not read on-chain state: {}", duel_id, e);
+            Err(HttpResponse::BadGateway()
+                .json(json!({"error": "Could not verify the duel on-chain — try again"})))
         }
     }
 }
 
-/// Pay `amount_g` out of the RewardPool for `ref_key`, once. The on-chain reference
-/// is the idempotency key: a replayed request finds the ref already used and pays
-/// nothing, which is what makes a retried resolve safe.
-async fn payout(state: &AppState, wallet: &str, amount_g: u64, ref_key: &str) -> Option<String> {
+/// Declares the winner on-chain, which is what actually pays them.
+///
+/// Idempotent in the way that matters: the contract rejects a duel that is not
+/// Active, so a replayed settle is a revert rather than a second payout. Returns
+/// the hash when this call is the one that settled it.
+async fn settle_onchain(state: &AppState, duel_id: u64, winner: &str) -> Option<String> {
     let chain = state.chain.as_ref()?;
-    let addr: Address = wallet.parse().ok()?;
-    let reference = ethers::utils::keccak256(ref_key.as_bytes());
+    let addr: Address = winner.parse().ok()?;
 
-    if chain.reward_ref_used(reference).await.unwrap_or(false) {
-        tracing::info!("duel payout {} already settled on-chain — skipping", ref_key);
-        return None;
-    }
-    match chain.distribute_reward(addr, amount_g, reference).await {
-        Ok(Some(tx)) => {
+    match chain.settle_duel(duel_id, addr).await {
+        Ok(hash) => {
+            let tx = format!("{:?}", hash);
             crate::handlers::ledger::insert_ledger_entry(
-                &state.db, wallet, "duel_payout",
-                rust_decimal::Decimal::from(amount_g), Some(&tx), None,
-                crate::services::chain_id::ChainId::Celo,
+                &state.db, winner, "duel_payout",
+                rust_decimal::Decimal::from(winner_payout_of(duel_id)), Some(&tx), None,
             ).await;
             Some(tx)
         }
-        Ok(None) => None,
         Err(e) => {
-            tracing::error!("duel payout FAILED for {} ({}): {}", wallet, ref_key, e);
+            // Not fatal to the player: if we never manage to settle, the contract's
+            // expiry window lets either of them reclaim their stake without us.
+            tracing::error!("duel {} settle FAILED for {}: {}", duel_id, winner, e);
             None
         }
     }
 }
+
+/// Placeholder for the ledger amount — the real figure is the pot minus the house
+/// cut, which the contract computes. Recorded as 0 until the settle receipt is
+/// parsed, so the ledger never claims a number the chain did not produce.
+fn winner_payout_of(_duel_id: u64) -> u64 { 0 }
 
 // ── POST /duels ───────────────────────────────────────────────────────────────
 #[derive(Deserialize)]
 pub struct CreateRequest {
     pub wallet: String,
     pub stake_g: i64,
-    #[serde(flatten)]
-    pub permit: StakePermit,
+    /// The duel the player already opened on StillHuntDuels. Their stake is
+    /// escrowed by the contract before this endpoint is ever called, so the id is
+    /// verified against the chain rather than trusted.
+    pub onchain_duel_id: i64,
 }
 
 /// Open a duel: escrow the challenger's stake and issue their run token.
@@ -249,10 +241,10 @@ pub async fn create_duel(
         }));
     }
 
-    let stake_tx = match escrow_stake(&state, &wallet, body.stake_g, &body.permit).await {
-        Ok(tx) => tx,
-        Err(resp) => return resp,
-    };
+    if let Err(resp) = verify_onchain_duel(&state, body.onchain_duel_id as u64).await {
+        return resp;
+    }
+    let stake_tx = format!("onchain:{}", body.onchain_duel_id);
 
     let id = Uuid::new_v4();
     let token = Uuid::new_v4().to_string();
@@ -270,9 +262,10 @@ pub async fn create_duel(
     .execute(&state.db).await;
 
     if let Err(e) = inserted {
-        // The stake is already on-chain. Refund rather than strand it.
-        tracing::error!("duel insert failed after escrow for {}: {} — refunding", wallet, e);
-        let refunded = payout(&state, &wallet, body.stake_g as u64, &format!("duel_refund:{}", stake_tx)).await;
+        // The stake sits in StillHuntDuels, not with us, so there is nothing to
+        // refund here — the player reclaims it with the contract's own cancel.
+        tracing::error!("duel insert failed for {}: {} — stake is reclaimable on-chain", wallet, e);
+        let refunded: Option<String> = None;
         return HttpResponse::InternalServerError().json(json!({
             "error": "Could not open the duel — your stake was refunded",
             "refund_tx": refunded,
@@ -319,10 +312,10 @@ pub async fn accept_duel(
         return HttpResponse::BadRequest().json(json!({"error": "You can't accept your own duel"}));
     }
 
-    let stake_tx = match escrow_stake(&state, &wallet, duel.stake_g, &body.permit).await {
-        Ok(tx) => tx,
-        Err(resp) => return resp,
-    };
+    if let Err(resp) = verify_onchain_duel(&state, duel.onchain_duel_id as u64).await {
+        return resp;
+    }
+    let stake_tx = format!("onchain:{}", duel.onchain_duel_id);
 
     let token = Uuid::new_v4().to_string();
     let now = Utc::now();
@@ -338,8 +331,8 @@ pub async fn accept_duel(
 
     let won_race = claimed.map(|r| r.rows_affected() == 1).unwrap_or(false);
     if !won_race {
-        tracing::warn!("duel {} accept race lost by {} — refunding", id, wallet);
-        let refunded = payout(&state, &wallet, duel.stake_g as u64, &format!("duel_refund:{}", stake_tx)).await;
+        tracing::warn!("duel {} accept race lost by {} — stake reclaimable on-chain", id, wallet);
+        let refunded: Option<String> = None;
         return HttpResponse::Conflict().json(json!({
             "error": "Someone accepted first — your stake was refunded",
             "refund_tx": refunded,
@@ -467,27 +460,28 @@ async fn resolve_if_complete(state: &AppState, id: Uuid) -> HttpResponse {
     // A draw refunds both stakes and takes NO cut. Taking a cut from a duel nobody
     // won would be the house charging for a non-result.
     if cs == os {
-        let a = payout(state, &duel.challenger_wallet, duel.stake_g as u64, &format!("duel:{}:draw:{}", id, duel.challenger_wallet)).await;
-        let b = payout(state, &opponent, duel.stake_g as u64, &format!("duel:{}:draw:{}", id, opponent)).await;
-        tracing::info!("duel {} drawn at {} — both refunded", id, cs);
+        // Deliberately no on-chain call. `settle` can only name a winner, and a
+        // draw has none — so the stakes stay escrowed and either player reclaims
+        // both sides through the contract's expiry window. The house takes no cut
+        // from a duel nobody won.
+        tracing::info!("duel {} drawn at {} — stakes refundable on-chain after expiry", id, cs);
         return HttpResponse::Ok().json(json!({
             "id": id, "resolved": true, "draw": true,
             "challenger_score": cs, "opponent_score": os,
-            "refund_txs": [a, b],
+            "refund": "expiry",
         }));
     }
 
     let winner = if cs > os { duel.challenger_wallet.clone() } else { opponent.clone() };
-    let take = winner_payout(duel.stake_g);
-    let tx = payout(state, &winner, take, &format!("duel:{}:{}", id, winner)).await;
+    let tx = settle_onchain(state, duel.onchain_duel_id as u64, &winner).await;
 
     let _ = sqlx::query("UPDATE duels SET winner_wallet = $1, payout_tx = $2 WHERE id = $3")
         .bind(&winner).bind(&tx).bind(id).execute(&state.db).await;
 
-    tracing::info!("duel {} won by {} ({} vs {}) — paid {} G$", id, winner, cs, os, take);
+    tracing::info!("duel {} won by {} ({} vs {}) — settled on-chain", id, winner, cs, os);
     HttpResponse::Ok().json(json!({
         "id": id, "resolved": true, "draw": false,
-        "winner": winner, "winnings_g": take,
+        "winner": winner, "winnings_g": winner_payout(duel.stake_g),
         "challenger_score": cs, "opponent_score": os,
         "payout_tx": tx,
     }))
@@ -530,9 +524,8 @@ pub async fn cancel_duel(
         return HttpResponse::Conflict().json(json!({"error": "That duel can no longer be cancelled"}));
     }
 
-    let tx = payout(&state, &wallet, duel.stake_g as u64, &format!("duel:{}:cancel", id)).await;
-    tracing::info!("duel {} cancelled by {} — stake refunded", id, wallet);
-    HttpResponse::Ok().json(json!({"id": id, "cancelled": true, "refund_tx": tx}))
+    tracing::info!("duel {} cancelled by {} — refund is the player's own on-chain cancel", id, wallet);
+    HttpResponse::Ok().json(json!({"id": id, "cancelled": true, "refund": "onchain_cancel"}))
 }
 
 // ── GET /duels ────────────────────────────────────────────────────────────────

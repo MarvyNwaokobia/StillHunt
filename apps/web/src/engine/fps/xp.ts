@@ -37,7 +37,7 @@ const LAST = RANKS.length - 1;
 
 /**
  * Career XP at which each rank is REACHED, cumulative down the progressive curve.
- * CUM[0] = 0 (Iron, the floor). Because the ladder is no longer flat, none of the
+ * CUM[0] = 0 (Drifter, the floor). Because the ladder is no longer flat, none of the
  * rank maths below can divide or modulo — they all walk this table.
  */
 const CUM: readonly number[] = RANKS.reduce<number[]>((acc, r, i) => {
@@ -59,7 +59,7 @@ export function rankForXp(totalXp: number): Rank {
 
 /**
  * Progress into the current rank, 0..the size of that rank's bar. At the top rank the
- * bar is the prestige step and keeps counting rather than pinning full, so a Diamond
+ * bar is the prestige step and keeps counting rather than pinning full, so a Apex
  * player still sees live progress toward their next prestige.
  */
 export function xpIntoRank(totalXp: number): number {

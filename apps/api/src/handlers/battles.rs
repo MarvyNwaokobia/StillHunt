@@ -17,102 +17,42 @@ fn uuid_to_bytes32(id: Uuid) -> [u8; 32] {
     bytes
 }
 
-/// Writes the same match to Avalanche and records the result.
+/// Records a finished operation on-chain and stores the hash.
 ///
-/// ONE REAL EVENT, TWO LEDGERS. The fight happened once; StillHunt runs on two chains
-/// and keeps a record on each. That is bookkeeping, not invented activity, and the
-/// distinction matters because inflating a transaction count is exactly what
-/// docs/ONCHAIN_TRANSACTIONS.md warns makes a grant application look like spam.
-///
-/// A no-op when the relay is unconfigured, which is the normal state until the
-/// contracts are deployed.
-///
-/// Never fails the caller. The match is already finished, the player already has
-/// their XP, and Celo already holds the authoritative record — a missing mirror
-/// costs one reporting row and nothing else.
-#[allow(clippy::too_many_arguments)]
-async fn mirror_battle_to_avalanche(
+/// Best effort throughout. The operation already happened and the player already
+/// has their XP, so a failed write costs one row in a public log and nothing
+/// else — which is exactly why the database, not the chain, is the operational
+/// source of truth.
+async fn record_on_chain(
     db: &sqlx::PgPool,
-    avalanche: Option<crate::services::avalanche::AvalancheWriter>,
+    chain: Option<crate::services::chain::ChainWriter>,
     battle_id: Uuid,
     battle_bytes: [u8; 32],
     winner: Address,
     loser: Address,
-    xp_winner: u8,
-    xp_loser: u8,
-    is_bot: bool,
+    xp_winner: u32,
+    xp_loser: u32,
+    solo: bool,
 ) {
-    let Some(av) = avalanche else { return };
+    let Some(c) = chain else { return };
 
-    // Gas here is AVAX we bought, unlike a StillHunt L1 where we would have minted it.
-    // Checking first means a drained relay logs one clear line instead of one
-    // failed send per fight.
-    if !av.relay_can_pay().await {
+    // Checked first so a drained relay logs one clear line instead of one failed
+    // send per operation.
+    if !c.relay_can_pay().await {
         tracing::error!(
-            "{}: skipping Avalanche mirror for battle {} — relay {:?} cannot pay gas",
-            crate::services::chain::RELAY_OUT_OF_GAS,
-            battle_id,
-            av.relay_address(),
+            "{}: skipping record for {} — relay {:?} cannot pay gas",
+            crate::services::chain::RELAY_OUT_OF_GAS, battle_id, c.relay_address(),
         );
         return;
     }
 
-    if let Some(hash) = av
-        .record_battle(battle_bytes, winner, loser, xp_winner, xp_loser, is_bot)
+    if let Some(hash) = c
+        .record_contract(battle_bytes, winner, loser, xp_winner, xp_loser, solo)
         .await
     {
-        record_battle_chain_tx(
-            db,
-            battle_id,
-            crate::services::chain_id::ChainId::Avalanche,
-            &format!("{:?}", hash),
-        )
-        .await;
-    }
-}
-
-/// Records that a battle's on-chain match record landed, on a named chain.
-///
-/// StillHunt writes the SAME match to every chain it runs on: one real event, two
-/// ledgers. `battle_chain_records` is the authoritative multi-chain row.
-/// `battles.game_record_tx` is a legacy single-hash column that three read paths
-/// still depend on (admin.rs's activity feed, players.rs's battle history,
-/// BattleHistory.tsx), so it keeps being written for Celo and only for Celo —
-/// overwriting it with an L1 hash would point those explorers at the wrong chain.
-///
-/// Both writes live here so the two cannot drift apart.
-///
-/// Best-effort, matching the surrounding call sites: the transaction is already
-/// mined by the time this runs, so failing to note it down must not look like
-/// the battle failed.
-async fn record_battle_chain_tx(
-    db: &sqlx::PgPool,
-    battle_id: Uuid,
-    chain: crate::services::chain_id::ChainId,
-    tx_hash: &str,
-) {
-    use crate::services::chain_id::ChainId;
-
-    if let Err(e) = sqlx::query(
-        "INSERT INTO battle_chain_records (battle_id, chain_id, tx_hash)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (battle_id, chain_id) DO NOTHING",
-    )
-    .bind(battle_id)
-    .bind(chain.as_i32())
-    .bind(tx_hash)
-    .execute(db)
-    .await
-    {
-        tracing::error!("Failed to record battle_chain_records for {} on {:?}: {}", battle_id, chain, e);
-    }
-
-    if chain == ChainId::Celo {
+        let tx = format!("{:?}", hash);
         if let Err(e) = sqlx::query("UPDATE battles SET game_record_tx = $1 WHERE id = $2")
-            .bind(tx_hash)
-            .bind(battle_id)
-            .execute(db)
-            .await
+            .bind(&tx).bind(battle_id).execute(db).await
         {
             tracing::error!("Failed to set game_record_tx for {}: {}", battle_id, e);
         }
@@ -173,16 +113,16 @@ async fn apply_item_boosts(db: &sqlx::PgPool, mut player: Player) -> Player {
 /// all-headshot) could not buy even ONE rank. The only way up was replaying the single
 /// best-paying op ~20 times per rank.
 ///
-/// Indexed by rank-up ordinal (Bronze = 1 … Diamond = 6). Calibrated against the real
-/// campaign ceiling: Bronze lands inside the first session (~op 3), and one full
-/// campaign clear (~2610 XP) lands Gold, so the story arc and the rank arc finish
-/// together. Diamond stays a genuine climb at ~6.7 campaign-equivalents.
+/// Indexed by rank-up ordinal (Tracker = 1 … Apex = 6). Calibrated against the real
+/// campaign ceiling: Tracker lands inside the first session (~op 3), and one full
+/// campaign clear (~2610 XP) lands Marksman, so the story arc and the rank arc finish
+/// together. Apex stays a genuine climb at ~6.7 campaign-equivalents.
 const RANK_STEP_XP: [i32; 6] = [400, 900, 1300, 2500, 4500, 8000];
-/// Past Diamond every prestige costs a flat step, forever (uncapped, see award_player).
+/// Past Apex every prestige costs a flat step, forever (uncapped, see award_player).
 const PRESTIGE_STEP_XP: i32 = 8000;
 
 /// XP that the `ordinal`-th rank-up costs on its own (the size of the bar you fill
-/// while sitting at the rank below it). Ordinals past Diamond are prestiges.
+/// while sitting at the rank below it). Ordinals past Apex are prestiges.
 fn rank_step_xp(ordinal: i32) -> i32 {
     if ordinal <= 0 {
         return RANK_STEP_XP[0];
@@ -200,13 +140,13 @@ fn cumulative_xp_for_rank(ordinal: i32) -> i32 {
 }
 /// Rank-up G$ is FLAT: every rank-up pays the same, whichever rank it is.
 ///
-/// It used to be STEP × N (Bronze 500, Silver 1000 … Diamond 3000), so reaching
-/// Diamond paid 10,500 G$ across the climb. The scaling was the point — rarer ranks
+/// It used to be STEP × N (Tracker 500, Stalker 1000 … Apex 3000), so reaching
+/// Apex paid 10,500 G$ across the climb. The scaling was the point — rarer ranks
 /// paid more — but at the pool's real size it was unaffordable: measured against the
 /// live ledger, rank-ups plus campaign clears plus Endless had paid 622,238 G$ in
 /// eighteen days against a 73,534 G$ pool, roughly two days of runway.
 ///
-/// Flat pays 1,200 G$ for the whole climb to Diamond instead of 10,500, and every
+/// Flat pays 1,200 G$ for the whole climb to Apex instead of 10,500, and every
 /// prestige past it the same 200. Paid once per (wallet, rank) on-chain, idempotently —
 /// see award_player + settle_rank_up_reward.
 const RANK_UP_REWARD_G: u64 = 200;
@@ -228,13 +168,13 @@ const VALID_MOVES: &[&str] = &["attack", "defend", "special"];
 ///
 /// It is a const because the last time a tier was added by hand, one copy was missed:
 /// the leaderboard sort still spelled out the OLD five-rank ladder, which dropped
-/// Emerald (the second-highest rank) into its `ELSE` bucket and sorted Emerald players
-/// BELOW Silver. Deriving from one array makes that failure impossible.
+/// Ghost (the second-highest rank) into its `ELSE` bucket and sorted Ghost players
+/// BELOW Stalker. Deriving from one array makes that failure impossible.
 pub(crate) const RANK_LADDER: [&str; 7] =
-    ["Iron", "Bronze", "Silver", "Gold", "Platinum", "Emerald", "Diamond"];
+    ["Drifter", "Tracker", "Stalker", "Marksman", "Ranger", "Ghost", "Apex"];
 
 fn next_rank(rank: &str) -> Option<&'static str> {
-    // Diamond (the last entry) has no next rank — a full bar past it PRESTIGES
+    // Apex (the last entry) has no next rank — a full bar past it PRESTIGES
     // instead (see award_player). An unknown rank has no next step either.
     let i = RANK_LADDER.iter().position(|r| *r == rank)?;
     RANK_LADDER.get(i + 1).copied()
@@ -282,7 +222,7 @@ struct FightOutcome {
     ranked_up: bool,
     new_rank:  Option<&'static str>,
     g_awarded: i64,
-    prestiged: bool, // true when this fight prestiged the player (past Diamond)
+    prestiged: bool, // true when this fight prestiged the player (past Apex)
     prestige_level: i32, // the player's prestige level after this fight
     battle_id: Uuid,
 }
@@ -297,11 +237,11 @@ pub(crate) struct PlayerAward {
     pub prestige_level: i32,
 }
 
-/// Number of rank-ups needed to reach a rank, from the Iron floor — Bronze is the 1st,
-/// Diamond the 6th. Used to size the refereed-XP a rank-up bonus requires
-/// (the curve's cumulative XP through N). Prestige levels extend past Diamond: prestige P is the
+/// Number of rank-ups needed to reach a rank, from the Drifter floor — Tracker is the 1st,
+/// Apex the 6th. Used to size the refereed-XP a rank-up bonus requires
+/// (the curve's cumulative XP through N). Prestige levels extend past Apex: prestige P is the
 /// (6 + P)th rank-up, computed inline in award_player rather than here.
-/// Position on the ladder: Iron 0 … Diamond 6. An unknown rank reads as the floor,
+/// Position on the ladder: Drifter 0 … Apex 6. An unknown rank reads as the floor,
 /// which fails closed (it gates rewards harder, never softer).
 fn rank_ordinal(rank: &str) -> i32 {
     RANK_LADDER.iter().position(|r| *r == rank).unwrap_or(0) as i32
@@ -366,10 +306,10 @@ pub(crate) async fn award_player(
 
     // CLIMB the ladder, one step at a time, for as many steps as the new total pays for.
     // A filled bar does one of two things:
-    //   • PROMOTE — advance to the next rank (Iron→…→Diamond), or
-    //   • PRESTIGE — at Diamond (no next rank), bump prestige_level instead. XP is never
+    //   • PROMOTE — advance to the next rank (Drifter→…→Apex), or
+    //   • PRESTIGE — at Apex (no next rank), bump prestige_level instead. XP is never
     //     deleted; the bar keeps counting and keeps paying, forever. This is the fix for
-    //     the old Diamond bug where a full bar subtracted 1000 XP and paid nothing.
+    //     the old Apex bug where a full bar subtracted 1000 XP and paid nothing.
     //
     // This is a LOOP, not a single step, because the ladder is progressive: an early rank
     // can cost less than one op pays, and a backfill or a big Endless award can span
@@ -384,10 +324,10 @@ pub(crate) async fn award_player(
 
     loop {
         // The ordinal of the step being attempted: the next rank's ordinal, or for a
-        // player already at Diamond, the (6 + prestige)th.
+        // player already at Apex, the (6 + prestige)th.
         let ordinal = match next_rank(cur_rank) {
             Some(nr) => rank_ordinal(nr),
-            None if cur_rank == "Diamond" => rank_ordinal("Diamond") + new_prestige + 1,
+            None if cur_rank == "Apex" => rank_ordinal("Apex") + new_prestige + 1,
             // Unknown rank with no next step: bail WITHOUT touching xp, so a bad rank
             // string can never silently eat a player's progress.
             None => break,
@@ -403,9 +343,9 @@ pub(crate) async fn award_player(
                 cur_rank = nr;
             }
             None => {
-                // Prestige: rank stays "Diamond", so the plain name can't key the payout.
+                // Prestige: rank stays "Apex", so the plain name can't key the payout.
                 new_prestige += 1;
-                steps.push((format!("Diamond+{}", new_prestige), ordinal, None));
+                steps.push((format!("Apex+{}", new_prestige), ordinal, None));
             }
         }
         // Hard bound: a corrupt xp value can never spin here or mint unbounded payouts.
@@ -480,7 +420,6 @@ pub(crate) async fn award_player(
         // advances in full either way — the cap only ever touches money.
         let reward_g = crate::services::earn_cap::cap_reward(
             state, wallet, rank_up_reward_g(reward_ordinal),
-            crate::services::earn_cap::RewardSource::Main,
         ).await;
         // Way 2 gate: the G$ bonus is paid only when the player's refereed lifetime XP
         // earns the level (the Nth rank-up needs the curve's cumulative XP through N).
@@ -494,7 +433,7 @@ pub(crate) async fn award_player(
         // insert (wallet, reward_key) owns the payout. A retry or a concurrent duplicate
         // fight-complete hits the PK conflict and pays nothing (the on-chain ref guard
         // is the second line of defence). The key is unique per rank AND per prestige
-        // level, so every prestige past Diamond is its own one-time payout.
+        // level, so every prestige past Apex is its own one-time payout.
         let claimed = earned_enough && sqlx::query(
             "INSERT INTO rank_up_rewards (wallet_address, rank, amount)
              VALUES ($1, $2, $3) ON CONFLICT (wallet_address, rank) DO NOTHING",
@@ -513,28 +452,18 @@ pub(crate) async fn award_player(
             );
         }
 
+        // The bonus accrues synchronously — it is a database write, not a
+        // transfer, so there is nothing to wait on and nothing to retry.
+        if claimed {
+            accrue_rank_up(state, wallet, &reward_key, reward_g).await;
+        }
+
+        // Only the on-chain record is fired in the background, because it is the
+        // one thing here that talks to a chain and can be slow.
         if let (Some(chain), Ok(addr)) = (state.chain.as_ref().cloned(), wallet.parse::<Address>()) {
-            let db = state.db.clone();
-            let wallet_owned = wallet.to_string();
-            // A promotion enrolls the player in the new tier's on-chain pool; a prestige
-            // does not (rank is unchanged, they're already in Diamond's pool).
-            let promoted_rank: Option<String> = promoted.map(|r| r.to_string());
-            tokio::spawn(async move {
-                // MONEY FIRST. Each of these takes the global tx_lock and waits for its
-                // own confirmation, so whatever runs first delays everything after it —
-                // and if the process dies mid-sequence, only the unrun tail is lost.
-                // The player is waiting on the G$, not on the bookkeeping, so the payout
-                // goes out before the on-chain record + pool enrollment rather than
-                // queueing behind them. Idempotent per (wallet, key) and shared with the
-                // reconcile sweep, so a failure here is re-attempted later.
-                if claimed {
-                    settle_rank_up_reward(&db, &chain, &wallet_owned, &reward_key, reward_g).await;
-                }
-                if let Some(rank) = promoted_rank {
-                    chain.record_rank_up(addr, rank.clone()).await;
-                    chain.enroll_in_rank_pool(addr, &rank).await;
-                }
-            });
+            if let Some(rank) = promoted.map(|r| r.to_string()) {
+                tokio::spawn(async move { chain.record_rank(addr, rank).await; });
+            }
         }
     }
 
@@ -556,7 +485,7 @@ pub(crate) async fn persist_battle(
     rounds_data: serde_json::Value,
     // Whether to also record this result on-chain (StillHuntRecord). PvE losses
     // skip the chain to save gas — the DB row still shows in battle history.
-    record_on_chain: bool,
+    should_record: bool,
     // Which mode produced this row: "campaign" | "bot" | "pvp" | "endless".
     mode: &str,
     // Did this battle increment players.wins/losses? MUST match the `count_result`
@@ -588,28 +517,19 @@ pub(crate) async fn persist_battle(
     .execute(&state.db)
     .await;
 
-    if let Some(chain) = state.chain.as_ref().filter(|_| record_on_chain).cloned() {
+    if let Some(chain) = state.chain.as_ref().filter(|_| should_record).cloned() {
         let loser_wallet = if winner_wallet == challenger { opponent } else { challenger };
         let winner_addr = winner_wallet.parse::<Address>().unwrap_or_else(|_| Address::zero());
         let loser_addr = loser_wallet.parse::<Address>().unwrap_or_else(|_| Address::zero());
         let battle_bytes = uuid_to_bytes32(battle_id);
-        let xp_u8 = xp_challenger.max(xp_opponent).min(255) as u8;
+        // u32, not u8. A boss operation pays more than 255 XP and the narrower
+        // type silently wrapped, so the on-chain record disagreed with the game.
+        let xp = xp_challenger.max(xp_opponent).max(0) as u32;
         let db = state.db.clone();
-        // Cloned here rather than read inside the task: `state` is a reference and
-        // the spawned future outlives this call. Note this sits inside the Celo
-        // `if let`, so an unconfigured Celo relay also skips the mirror — fine in
-        // practice, since Celo is always configured, and it keeps `record_on_chain`
-        // as the single gate for whether this match is recorded anywhere at all.
-        let avalanche = state.avalanche.clone();
         tokio::spawn(async move {
-            if let Some(hash) = chain.record_battle(battle_bytes, winner_addr, loser_addr, xp_u8, 0, is_bot).await {
-                let hash_str = format!("{:?}", hash);
-                record_battle_chain_tx(
-                    &db, battle_id, crate::services::chain_id::ChainId::Celo, &hash_str,
-                ).await;
-            }
-            mirror_battle_to_avalanche(
-                &db, avalanche, battle_id, battle_bytes, winner_addr, loser_addr, xp_u8, 0, is_bot,
+            record_on_chain(
+                &db, Some(chain), battle_id, battle_bytes,
+                winner_addr, loser_addr, xp, 0, is_bot,
             ).await;
         });
     }
@@ -627,7 +547,7 @@ async fn finalize_fight(
     rounds_data: serde_json::Value,
     // Record this result on-chain? PvE passes `won` (Option B: wins/completions
     // on-chain, losses history-only); the bot fight passes true.
-    record_on_chain: bool,
+    should_record: bool,
     // Is this a server-verified (refereed) fight? Bot fights are; a live fight is
     // only when it's session-backed (Campaign). Gates the rank-up G$ bonus.
     reward_eligible: bool,
@@ -640,7 +560,7 @@ async fn finalize_fight(
     let award = award_player(state, wallet, won, base_xp, xp_multiplier, reward_eligible, COUNTS).await?;
     let battle_id = Uuid::new_v4();
     let winner = if won { wallet } else { "bot" };
-    persist_battle(state, battle_id, wallet, "bot", winner, award.xp_earned, 0, true, rounds_data, record_on_chain, mode, COUNTS).await;
+    persist_battle(state, battle_id, wallet, "bot", winner, award.xp_earned, 0, true, rounds_data, should_record, mode, COUNTS).await;
     Ok(FightOutcome {
         won,
         xp_earned: award.xp_earned,
@@ -1038,10 +958,10 @@ pub async fn complete_live_fight(
     };
     // Record every result on-chain — both a completion (win) and a death (loss)
     // write a StillHuntRecord. Losses cost gas but give an honest on-chain history.
-    let record_on_chain = true;
+    let should_record = true;
     // Refereed (bonus-eligible) only when session-backed — the flat/Endless path is not.
     let reward_eligible = body.session_id.is_some();
-    let outcome = match finalize_fight(&state, &wallet, body.won, base_xp, xp_multiplier, rounds, record_on_chain, reward_eligible, "campaign").await {
+    let outcome = match finalize_fight(&state, &wallet, body.won, base_xp, xp_multiplier, rounds, should_record, reward_eligible, "campaign").await {
         Ok(o) => o,
         Err(resp) => return resp,
     };
@@ -1063,7 +983,6 @@ pub async fn complete_live_fight(
             // nothing to disagree with.
             let amount = crate::services::earn_cap::cap_reward(
                 &state, &wallet, first_clear_bounty(level),
-                crate::services::earn_cap::RewardSource::Main,
             ).await;
             // Claim the payout slot idempotently: only the first request to insert
             // the (wallet, level) row owns the payout. A retry or a concurrent
@@ -1091,21 +1010,8 @@ pub async fn complete_live_fight(
 
             if claimed {
                 bounty_awarded = amount;
-                pay_first_clear_bounty(&state, wallet.clone(), level, amount);
+                accrue_first_clear(&state, &wallet, level, amount).await;
             }
-            // Scrip accrues for the SAME clear, alongside the G$ above rather than
-            // instead of it. That is not double-paying: Scrip is minted by us, has
-            // no exchange rate and no cash-out, so it costs nothing to issue and
-            // moves no real value. It is closer to XP than to money.
-            //
-            // Awarded to every player, not to an "Avalanche player", because StillHunt
-            // has ONE player population by design — the chain is a property of a
-            // payout, not of a person. That is what lets the whole player base
-            // generate Avalanche claim transactions without splitting anyone off.
-            //
-            // Keyed on the same first-clear identity as the G$ bounty, so a replayed
-            // op accrues nothing and a retried request accrues once.
-            award_scrip_for_clear(&state, &wallet, level).await;
         }
     }
     // Pay-per-play was removed (2026-07-26): a Campaign op pays its bounty ONCE, on the
@@ -1133,436 +1039,59 @@ pub async fn complete_live_fight(
 /// Fire-and-forget the on-chain first-clear bounty payout. The DB row was already
 /// claimed by the caller (idempotent), so this runs at most once per (wallet, op).
 /// Delegates to `settle_first_clear_bounty`, which is shared with the reconcile job.
-fn pay_first_clear_bounty(state: &AppState, wallet: String, level: i32, amount: u64) {
-    let Some(chain) = state.chain.as_ref().cloned() else { return; };
-    let db = state.db.clone();
-    tokio::spawn(async move {
-        settle_first_clear_bounty(&db, &chain, &wallet, level, amount).await;
-    });
-}
-
-/// Attempt (or re-attempt) the on-chain payout for one claimed bounty row and
-/// reconcile the row + ledger + lifetime stat to match the chain. Shared by the
-/// live-fight path and the reconcile sweep, so both settle a bounty identically.
+/// Accrues a first-clear bounty.
 ///
-/// Idempotency is airtight: the on-chain `ref` guard means a given (wallet, op) can
-/// pay at most once, ever. Before sending a transaction we read `rewardRefUsed(ref)`
-/// so a row whose payout DID land on-chain but whose DB update was lost (RPC blip
-/// after the transfer) is reconciled to `paid` without a doomed, gas-wasting retry.
-/// A `failed` row never credited the ledger/lifetime, so crediting them here on a
-/// successful settle cannot double-count.
-async fn settle_first_clear_bounty(
-    db: &sqlx::PgPool,
-    chain: &crate::services::chain::ChainWriter,
-    wallet: &str,
-    level: i32,
-    amount: u64,
-) -> &'static str {
-    let Ok(addr) = wallet.parse::<Address>() else {
-        tracing::error!("first-clear bounty: bad wallet {}", wallet);
-        return "bad_wallet";
-    };
-    // Deterministic on-chain idempotency key per (wallet, op).
-    let reference = ethers::utils::keccak256(format!("first_clear:{}:{}", wallet, level).as_bytes());
-
-    // If the chain already recorded this ref, the payout landed — reconcile the DB
-    // instead of sending a transaction that would revert with RefAlreadyUsed.
-    let already_paid = chain.reward_ref_used(reference).await.unwrap_or(false);
-    // Some(hash) = paid by THIS settle; None = landed in an earlier tx we no longer know.
-    let result = if already_paid {
-        Ok(Some(None))
-    } else {
-        chain.distribute_reward(addr, amount, reference).await.map(|r| r.map(Some))
-    };
-
-    match result {
-        Ok(Some(tx_hash)) => {
-            // Flip to 'paid' and let ONLY the row that actually made that transition
-            // credit the ledger + lifetime. The sweep now re-attempts 'pending' rows,
-            // which can run while the live task is still in flight, so two settles may
-            // race on one bounty; both would see success (the on-chain ref guard makes
-            // the second a no-op read). Gating the credit on rows_affected means the
-            // loser credits nothing and the player is never double-counted.
-            let credited = sqlx::query(
-                "UPDATE first_clear_bounties SET status = 'paid', tx_hash = COALESCE($3, tx_hash)
-                 WHERE wallet_address = $1 AND level = $2 AND status <> 'paid'",
-            )
-            .bind(wallet).bind(level).bind(&tx_hash).execute(db).await
-            .map(|r| r.rows_affected() == 1)
-            .unwrap_or(false);
-
-            if credited {
-                let credited_locally = sqlx::query("UPDATE players SET g_earned_lifetime = g_earned_lifetime + $1 WHERE wallet_address = $2")
-                    .bind(amount as i64).bind(wallet).execute(db).await;
-                // The transfer already CONFIRMED on-chain. If this local credit fails
-                // the player has the G$ but our ledger disagrees, so it must be loud.
-                log_write_failure("g_earned_lifetime credit", wallet, &credited_locally);
-                crate::handlers::ledger::insert_ledger_entry(
-                    db, wallet, "battle_reward", rust_decimal::Decimal::from(amount), tx_hash.as_deref(), None,
-                    crate::services::chain_id::ChainId::Celo,
-                ).await;
-                tracing::info!(
-                    "first-clear bounty paid: {} op{} +{} G${}",
-                    wallet, level, amount, if already_paid { " (reconciled — was already on-chain)" } else { "" }
-                );
-            }
-            "paid"
-        }
-        Ok(None) => {
-            tracing::warn!("Reward pool not configured — first-clear bounty for {} op{} not paid", wallet, level);
-            let _ = sqlx::query("UPDATE first_clear_bounties SET status = 'failed' WHERE wallet_address = $1 AND level = $2")
-                .bind(wallet).bind(level).execute(db).await;
-            "unconfigured"
-        }
-        Err(e) => {
-            tracing::error!("first-clear bounty on-chain failed for {} op{}: {}", wallet, level, e);
-            let _ = sqlx::query("UPDATE first_clear_bounties SET status = 'failed' WHERE wallet_address = $1 AND level = $2")
-                .bind(wallet).bind(level).execute(db).await;
-            "failed"
-        }
-    }
-}
-
-/// Fire-and-forget the on-chain pay-per-play op bounty. The (battle_id) row was already
-/// claimed by the caller (PK-idempotent), so this runs at most once per play. Delegates to
-/// `settle_op_play_bounty`, which is shared with the reconcile job.
-/// Retired 2026-07-26 (ops pay once, on first clear) but kept so pay-per-play can be
-/// toggled back on without rewiring the settle rail.
-#[allow(dead_code)]
-/// What one campaign clear accrues in Scrip.
-///
-/// THE ANCHOR FOR THE WHOLE AVALANCHE ECONOMY. Every price in
-/// contracts/script/RegisterAvalancheItems.s.sol is a multiple of this: a booster
-/// is a quarter of a clear, the entry gun eight, the top gun eighty. Change this
-/// and every item silently re-prices in real terms, so change the ladder with it.
-///
-/// Deliberately flat rather than scaling with level. Scrip measures time played,
-/// and a level-12 op does not take twelve times as long as a level-1 op.
-const SCRIP_PER_CLEAR: i64 = 100;
-
-/// Accrue Scrip for a campaign clear. Never fails the fight.
-///
-/// Unlike the G$ bounty this writes no transaction: it is a database credit the
-/// player later turns into an on-chain mint at the Bank. That is the entire point
-/// of the accrue-then-claim shape — one transaction per claim instead of one per
-/// win, which is what stops the relay draining.
-async fn award_scrip_for_clear(state: &AppState, wallet: &str, level: i32) {
-    // Same idempotency key shape as the on-chain refs this codebase already uses,
-    // so a retry credits nothing rather than paying twice.
-    let ref_key = format!("first_clear:{wallet}:{level}");
-    crate::services::earnings::award(
+/// There is no on-chain payout here and no reconcile sweep behind it. StillHunt
+/// has no reward pool: clearing an operation records a balance the player later
+/// claims, and `earnings::award` is idempotent on its ref key, so a retry or a
+/// duplicate request credits exactly once. That removes the entire class of bug
+/// this function used to carry — a transfer that confirmed on-chain while the
+/// local credit failed, leaving the player paid and the ledger disagreeing.
+async fn accrue_first_clear(state: &AppState, wallet: &str, level: i32, amount: u64) {
+    if amount == 0 { return; }
+    let credited = crate::services::earnings::award(
         &state.db,
         wallet,
-        crate::services::chain_id::ChainId::Avalanche,
         "first_clear",
-        rust_decimal::Decimal::from(SCRIP_PER_CLEAR),
-        &ref_key,
-    )
-    .await;
-}
+        rust_decimal::Decimal::from(amount),
+        &format!("first_clear:{wallet}:{level}"),
+    ).await;
 
-fn pay_op_play_bounty(state: &AppState, battle_id: Uuid, wallet: String, level: i32, amount: u64) {
-    let Some(chain) = state.chain.as_ref().cloned() else { return; };
-    let db = state.db.clone();
-    tokio::spawn(async move {
-        settle_op_play_bounty(&db, &chain, battle_id, &wallet, level, amount).await;
-    });
-}
-
-/// Attempt (or re-attempt) the on-chain payout for one pay-per-play op bounty. Mirrors
-/// `settle_first_clear_bounty` exactly, except the idempotency key is the battle id —
-/// every play is its own one-time payout, so replays of the same op each pay once.
-async fn settle_op_play_bounty(
-    db: &sqlx::PgPool,
-    chain: &crate::services::chain::ChainWriter,
-    battle_id: Uuid,
-    wallet: &str,
-    level: i32,
-    amount: u64,
-) -> &'static str {
-    let Ok(addr) = wallet.parse::<Address>() else {
-        tracing::error!("op-play bounty: bad wallet {}", wallet);
-        return "bad_wallet";
-    };
-    // Deterministic on-chain idempotency key per play.
-    let reference = ethers::utils::keccak256(format!("op_play:{}:{}", wallet, battle_id).as_bytes());
-
-    let already_paid = chain.reward_ref_used(reference).await.unwrap_or(false);
-    // Some(hash) = paid by THIS settle; None = landed in an earlier tx we no longer know.
-    let result = if already_paid {
-        Ok(Some(None))
-    } else {
-        chain.distribute_reward(addr, amount, reference).await.map(|r| r.map(Some))
-    };
-
-    match result {
-        Ok(Some(tx_hash)) => {
-            // Credit gated on the row actually flipping to 'paid' — see
-            // settle_first_clear_bounty for why (live task + sweep can race).
-            let credited = sqlx::query(
-                "UPDATE op_play_bounties SET status = 'paid', tx_hash = COALESCE($2, tx_hash)
-                 WHERE battle_id = $1 AND status <> 'paid'",
-            )
-            .bind(battle_id).bind(&tx_hash).execute(db).await
-            .map(|r| r.rows_affected() == 1)
-            .unwrap_or(false);
-
-            if credited {
-                let credited_locally = sqlx::query("UPDATE players SET g_earned_lifetime = g_earned_lifetime + $1 WHERE wallet_address = $2")
-                    .bind(amount as i64).bind(wallet).execute(db).await;
-                // The transfer already CONFIRMED on-chain. If this local credit fails
-                // the player has the G$ but our ledger disagrees, so it must be loud.
-                log_write_failure("g_earned_lifetime credit", wallet, &credited_locally);
-                crate::handlers::ledger::insert_ledger_entry(
-                    db, wallet, "battle_reward", rust_decimal::Decimal::from(amount), tx_hash.as_deref(), None,
-                    crate::services::chain_id::ChainId::Celo,
-                ).await;
-                tracing::info!("op-play bounty paid: {} op{} +{} G$ (battle {})", wallet, level, amount, battle_id);
-            }
-            "paid"
-        }
-        Ok(None) => {
-            tracing::warn!("Reward pool not configured — op-play bounty for {} op{} not paid", wallet, level);
-            let _ = sqlx::query("UPDATE op_play_bounties SET status = 'failed' WHERE battle_id = $1")
-                .bind(battle_id).execute(db).await;
-            "unconfigured"
-        }
-        Err(e) => {
-            tracing::error!("op-play bounty on-chain failed for {} op{} (battle {}): {}", wallet, level, battle_id, e);
-            let _ = sqlx::query("UPDATE op_play_bounties SET status = 'failed' WHERE battle_id = $1")
-                .bind(battle_id).execute(db).await;
-            "failed"
-        }
+    if credited {
+        let lifetime = sqlx::query(
+            "UPDATE players SET g_earned_lifetime = g_earned_lifetime + $1 WHERE wallet_address = $2",
+        )
+        .bind(amount as i64).bind(wallet).execute(&state.db).await;
+        log_write_failure("earned_lifetime credit", wallet, &lifetime);
+        tracing::info!("first-clear accrued: {} op{} +{} TALLY", wallet, level, amount);
     }
 }
 
-/// Attempt (or re-attempt) the on-chain payout for one claimed rank-up reward row.
-/// Mirrors `settle_first_clear_bounty`: the on-chain `ref` (keyed per wallet+rank)
-/// makes it idempotent, a row whose payout landed but whose DB update was lost is
-/// reconciled without a doomed retry, and the ledger/lifetime are credited only on a
-/// successful settle of a `failed`/`pending` row so they can never double-count.
-/// Shared by the live rank-up path and the reconcile sweep.
-async fn settle_rank_up_reward(
-    db: &sqlx::PgPool,
-    chain: &crate::services::chain::ChainWriter,
-    wallet: &str,
-    rank: &str,
-    amount: u64,
-) -> &'static str {
-    let Ok(addr) = wallet.parse::<Address>() else {
-        tracing::error!("rank-up reward: bad wallet {}", wallet);
-        return "bad_wallet";
-    };
-    // Deterministic on-chain idempotency key per (wallet, rank).
-    let reference = ethers::utils::keccak256(format!("rank_up:{}:{}", wallet, rank).as_bytes());
+/// Accrues a rank-up bonus. Idempotent per (wallet, rank).
+async fn accrue_rank_up(state: &AppState, wallet: &str, rank: &str, amount: u64) {
+    if amount == 0 { return; }
+    let credited = crate::services::earnings::award(
+        &state.db,
+        wallet,
+        "rank_up",
+        rust_decimal::Decimal::from(amount),
+        &format!("rank_up:{wallet}:{rank}"),
+    ).await;
 
-    let already_paid = chain.reward_ref_used(reference).await.unwrap_or(false);
-    // Some(hash) = paid by THIS settle; None = landed in an earlier tx we no longer know.
-    let result = if already_paid {
-        Ok(Some(None))
-    } else {
-        chain.distribute_reward(addr, amount, reference).await.map(|r| r.map(Some))
-    };
-
-    match result {
-        Ok(Some(tx_hash)) => {
-            // Only the settle that actually flips 'pending'/'failed' → 'paid' credits the
-            // ledger + lifetime; see settle_first_clear_bounty for why (the sweep can now
-            // race the live task on a 'pending' row).
-            let credited = sqlx::query(
-                "UPDATE rank_up_rewards SET status = 'paid', tx_hash = COALESCE($3, tx_hash)
-                 WHERE wallet_address = $1 AND rank = $2 AND status <> 'paid'",
-            )
-            .bind(wallet).bind(rank).bind(&tx_hash).execute(db).await
-            .map(|r| r.rows_affected() == 1)
-            .unwrap_or(false);
-
-            if credited {
-                let credited_locally = sqlx::query("UPDATE players SET g_earned_lifetime = g_earned_lifetime + $1 WHERE wallet_address = $2")
-                    .bind(amount as i64).bind(wallet).execute(db).await;
-                // The transfer already CONFIRMED on-chain. If this local credit fails
-                // the player has the G$ but our ledger disagrees, so it must be loud.
-                log_write_failure("g_earned_lifetime credit", wallet, &credited_locally);
-                crate::handlers::ledger::insert_ledger_entry(
-                    db, wallet, "battle_reward", rust_decimal::Decimal::from(amount), tx_hash.as_deref(), None,
-                    crate::services::chain_id::ChainId::Celo,
-                ).await;
-                tracing::info!(
-                    "rank-up reward paid: {} {} +{} G${}",
-                    wallet, rank, amount, if already_paid { " (reconciled — was already on-chain)" } else { "" }
-                );
-            }
-            "paid"
-        }
-        Ok(None) => {
-            tracing::warn!("Reward pool not configured — rank-up reward for {} {} not paid", wallet, rank);
-            let _ = sqlx::query("UPDATE rank_up_rewards SET status = 'failed' WHERE wallet_address = $1 AND rank = $2")
-                .bind(wallet).bind(rank).execute(db).await;
-            "unconfigured"
-        }
-        Err(e) => {
-            tracing::error!("rank-up reward on-chain failed for {} {}: {}", wallet, rank, e);
-            let _ = sqlx::query("UPDATE rank_up_rewards SET status = 'failed' WHERE wallet_address = $1 AND rank = $2")
-                .bind(wallet).bind(rank).execute(db).await;
-            "failed"
-        }
+    if credited {
+        let lifetime = sqlx::query(
+            "UPDATE players SET g_earned_lifetime = g_earned_lifetime + $1 WHERE wallet_address = $2",
+        )
+        .bind(amount as i64).bind(wallet).execute(&state.db).await;
+        log_write_failure("earned_lifetime credit", wallet, &lifetime);
+        tracing::info!("rank-up accrued: {} {} +{} TALLY", wallet, rank, amount);
     }
 }
 
-/// Cron-triggered sweep that re-attempts every `status='failed'` first-clear bounty.
-/// A bounty lands in `failed` when its on-chain payout didn't confirm (RPC blip, a
-/// briefly-empty or unconfigured pool) — and, because pve_level already advanced,
-/// the live path never retries it. This is that retry. Safe to run repeatedly: the
-/// on-chain `ref` guard makes every re-attempt idempotent (never double-pays), and
-/// rows already paid on-chain are reconciled without spending gas.
-///
-/// Auth: shares the decay cron's `x-cron-secret` (DECAY_CRON_SECRET) so it needs no
-/// new secret. Processes a bounded batch per run to cap gas/latency on the free tier.
-pub async fn reconcile_first_clear_bounties(state: web::Data<AppState>, req: HttpRequest) -> HttpResponse {
-    let expected = std::env::var("DECAY_CRON_SECRET").unwrap_or_default();
-    let provided = req
-        .headers()
-        .get("x-cron-secret")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("");
-    if expected.is_empty() || provided != expected {
-        return HttpResponse::Unauthorized().finish();
-    }
-
-    let Some(chain) = state.chain.as_ref().cloned() else {
-        return HttpResponse::Ok().json(json!({
-            "reconciled": 0, "still_failed": 0, "skipped": "chain not configured",
-        }));
-    };
-
-    // Oldest-first, capped so a backlog can't make one sweep run unbounded.
-    //
-    // 'pending' rows are swept too, not just 'failed'. A payout row is created 'pending'
-    // and only becomes 'paid'/'failed' once the spawned settle task finishes — so if the
-    // process dies mid-flight (a free-tier instance spinning down kills in-flight tasks),
-    // the row stays 'pending' forever and nothing ever retries it. That is real money
-    // silently never delivered. The age guard keeps this sweep off rows whose live
-    // attempt is plausibly still running; anything older has been abandoned.
-    let rows: Vec<(String, i32, i64)> = sqlx::query_as(
-        "SELECT wallet_address, level, amount
-         FROM first_clear_bounties
-         WHERE status = 'failed'
-            OR (status = 'pending' AND created_at < now() - interval '5 minutes')
-         ORDER BY created_at ASC
-         LIMIT 25",
-    )
-    .fetch_all(&state.db)
-    .await
-    .unwrap_or_default();
-
-    let attempted = rows.len();
-    let mut reconciled = 0u32;
-    for (wallet, level, amount) in rows {
-        if settle_first_clear_bounty(&state.db, &chain, &wallet, level, amount.max(0) as u64).await == "paid" {
-            reconciled += 1;
-        }
-    }
-
-    // Same sweep for rank-up rewards (identical idempotent settle rail), including the
-    // abandoned-'pending' case above.
-    let rank_rows: Vec<(String, String, i64)> = sqlx::query_as(
-        "SELECT wallet_address, rank, amount
-         FROM rank_up_rewards
-         WHERE status = 'failed'
-            OR (status = 'pending' AND created_at < now() - interval '5 minutes')
-         ORDER BY created_at ASC
-         LIMIT 25",
-    )
-    .fetch_all(&state.db)
-    .await
-    .unwrap_or_default();
-
-    let rank_attempted = rank_rows.len();
-    let mut rank_reconciled = 0u32;
-    for (wallet, rank, amount) in rank_rows {
-        if settle_rank_up_reward(&state.db, &chain, &wallet, &rank, amount.max(0) as u64).await == "paid" {
-            rank_reconciled += 1;
-        }
-    }
-
-    // Same idempotent rail for pay-per-play op bounties (replay wins), including the
-    // abandoned-'pending' case above.
-    let play_rows: Vec<(Uuid, String, i32, i64)> = sqlx::query_as(
-        "SELECT battle_id, wallet_address, level, amount
-         FROM op_play_bounties
-         WHERE status = 'failed'
-            OR (status = 'pending' AND created_at < now() - interval '5 minutes')
-         ORDER BY created_at ASC
-         LIMIT 25",
-    )
-    .fetch_all(&state.db)
-    .await
-    .unwrap_or_default();
-
-    let play_attempted = play_rows.len();
-    let mut play_reconciled = 0u32;
-    for (battle_id, wallet, level, amount) in play_rows {
-        if settle_op_play_bounty(&state.db, &chain, battle_id, &wallet, level, amount.max(0) as u64).await == "paid" {
-            play_reconciled += 1;
-        }
-    }
-
-    // Same idempotent rail for Endless per-wave payouts.
-    let (endless_attempted, endless_reconciled) =
-        crate::handlers::endless::sweep_endless_rewards(&state.db, &chain).await;
-
-    // And referrals, which had no automatic retry at all until now. Every other payout
-    // was swept here; a failed referral just sat at 'failed' for ever, reachable only
-    // through an admin endpoint that nothing in the UI called. Two were stranded that way
-    // when the main pool ran dry. Same idempotent rail, same pool, same cadence.
-    //
-    // 'pending' rows are swept for the same reason as the others: the row is written
-    // before the spawned settle task runs, so a process that dies mid-flight leaves money
-    // owed with nothing to retry it.
-    let referral_rows: Vec<(String, String, i64)> = sqlx::query_as(
-        "SELECT referrer_wallet, referred_wallet, amount
-         FROM referrals
-         WHERE status = 'failed'
-            OR (status = 'pending' AND created_at < now() - interval '5 minutes')
-         ORDER BY created_at ASC
-         LIMIT 25",
-    )
-    .fetch_all(&state.db)
-    .await
-    .unwrap_or_default();
-
-    let referral_attempted = referral_rows.len();
-    let mut referral_reconciled = 0u32;
-    for (referrer, referred, amount) in referral_rows {
-        if crate::handlers::players::settle_referral(
-            &state.db, &chain, &referrer, &referred, amount.max(0) as u64,
-        ).await == "paid" {
-            referral_reconciled += 1;
-        }
-    }
-
-    tracing::info!(
-        "reward reconcile: bounties {}/{}, rank-ups {}/{}, op-plays {}/{}, endless {}/{}, \
-         referrals {}/{} settled",
-        reconciled, attempted, rank_reconciled, rank_attempted, play_reconciled, play_attempted,
-        endless_reconciled, endless_attempted, referral_reconciled, referral_attempted
-    );
-    HttpResponse::Ok().json(json!({
-        "attempted":         attempted,
-        "reconciled":        reconciled,
-        "still_failed":      attempted as u32 - reconciled,
-        "play_attempted":    play_attempted,
-        "play_reconciled":   play_reconciled,
-        "rank_attempted":    rank_attempted,
-        "rank_reconciled":   rank_reconciled,
-        "rank_still_failed": rank_attempted as u32 - rank_reconciled,
-        "endless_attempted":  endless_attempted,
-        "endless_reconciled": endless_reconciled,
-        "referral_attempted":  referral_attempted,
-        "referral_reconciled": referral_reconciled,
-        "ran_at":            Utc::now().to_rfc3339(),
-    }))
-}
+// The reconcile sweep is gone with the reward pool. It existed to re-attempt
+// payouts whose on-chain transfer never landed, which is a failure mode accrual
+// does not have: `earnings::award` is a single idempotent INSERT, so it either
+// records the balance or logs loudly, and there is nothing half-done to retry.
 
 #[derive(Deserialize)]
 pub struct PvpCompleteRequest {
@@ -1572,11 +1101,8 @@ pub struct PvpCompleteRequest {
     pub duration_secs: f64,
 }
 
-/// Server-authoritative completion of a real-time PvP match. Called ONLY by the
-/// trusted realtime sim host (GameRoom) — never by a client — so it's gated by a
-/// shared secret (`PVP_SERVER_SECRET`); without that env var set it fails closed.
-/// The host reports who won; the API awards BOTH players via the same `award_player`
-/// path as every other mode and records one PvP (non-bot) battle row.
+/// Finalises a server-refereed PvP match. Runs the same XP/rank path as every
+/// other mode and records one PvP (non-solo) battle row.
 pub async fn complete_pvp_match(
     state: web::Data<AppState>,
     req: HttpRequest,
@@ -1746,19 +1272,13 @@ pub async fn challenge_player(
         let xp_ch = xp_challenger.min(255) as u8;
         let xp_op = xp_opponent.min(255) as u8;
         let db = state.db.clone();
-        let avalanche = state.avalanche.clone();
         let battle_uuid = battle_id;
         tokio::spawn(async move {
             if let (Some(ch), Some(op)) = (ch_addr, op_addr) {
                 let (winner_addr, loser_addr) = if ch_won { (ch, op) } else { (op, ch) };
-                if let Some(hash) = chain.record_battle(battle_bytes, winner_addr, loser_addr, xp_ch, xp_op, false).await {
-                    let hash_str = format!("{:?}", hash);
-                    record_battle_chain_tx(
-                        &db, battle_uuid, crate::services::chain_id::ChainId::Celo, &hash_str,
-                    ).await;
-                }
-                mirror_battle_to_avalanche(
-                    &db, avalanche, battle_uuid, battle_bytes, winner_addr, loser_addr, xp_ch, xp_op, false,
+                record_on_chain(
+                    &db, Some(chain), battle_uuid, battle_bytes,
+                    winner_addr, loser_addr, xp_ch as u32, xp_op as u32, false,
                 ).await;
             }
         });
@@ -1777,36 +1297,33 @@ pub async fn challenge_player(
 mod reward_amount_tests {
     use super::*;
 
-    /// The Scrip anchor, and what it buys.
+    /// The clear anchor, and what it buys.
     ///
-    /// Every Avalanche price in RegisterAvalancheItems.s.sol is a multiple of
-    /// SCRIP_PER_CLEAR, so this is the number the whole catalogue is denominated
-    /// in. If someone changes it without moving the ladder, every item silently
-    /// re-prices in real terms — the entry gun stops being a first-session goal,
-    /// or the top gun stops being aspirational. That is exactly the drift that
-    /// left Celo with a shop where two wins buy the best item in the game.
+    /// Every marketplace price is a multiple of what one operation clear pays, so
+    /// this is the number the whole catalogue is denominated in. Change it without
+    /// moving the price ladder and every item silently re-prices in real terms —
+    /// the entry gun stops being a first-session goal, or the top gun stops being
+    /// aspirational.
     #[test]
-    fn scrip_anchor_matches_the_avalanche_price_ladder() {
-        assert_eq!(SCRIP_PER_CLEAR, 100, "the Avalanche catalogue is priced against this");
+    fn the_clear_bounty_anchors_the_price_ladder() {
+        let per_clear = first_clear_bounty(1) as i64;
+        assert!(per_clear > 0, "a clear must pay something or the Bank is never worth opening");
 
-        // Prices from contracts/script/RegisterAvalancheItems.s.sol, expressed as
-        // the thing that actually matters: how many clears each one costs.
-        let clears = |price: i64| price / SCRIP_PER_CLEAR;
-        assert_eq!(clears(25), 0, "a booster is a fraction of a clear, bought casually");
-        assert_eq!(clears(800), 8, "entry gun: reachable in a first session");
-        assert_eq!(clears(2_500), 25, "mid gun");
-        assert_eq!(clears(8_000), 80, "top gun: still out of reach after hours");
+        let clears = |price: i64| price / per_clear;
+        assert_eq!(clears(per_clear * 8), 8, "entry gun: reachable in a first session");
+        assert_eq!(clears(per_clear * 80), 80, "top gun: still out of reach after hours");
     }
 
-    /// Scrip accrues, G$ pays out. Both happen for the same clear and that is
-    /// deliberate: Scrip is minted by us with no exchange rate and no cash-out, so
-    /// issuing it alongside G$ moves no real value. It is closer to XP than money.
+    /// Nothing may propose more than the token's per-mint ceiling.
     #[test]
-    fn scrip_accrues_on_top_of_the_g_bounty_not_instead_of_it() {
-        assert!(SCRIP_PER_CLEAR > 0, "a clear must accrue something or the Bank is empty");
-        // The G$ side is unaffected by the Scrip side — no shared rate, no shared
-        // pause. Celo behaviour must stay exactly as it was.
-        assert_eq!(op_bounty_rate_g(1), FIRST_CLEAR_BOUNTY_G.min(MAX_REWARD_G));
+    fn no_single_reward_exceeds_the_cap() {
+        for level in 1..=15 {
+            assert!(
+                first_clear_bounty(level) <= MAX_REWARD_G,
+                "op {level} proposes more than the cap",
+            );
+        }
+        assert!(rank_up_reward_g(1) <= MAX_REWARD_G);
     }
 
     #[test]
@@ -1833,22 +1350,22 @@ mod reward_amount_tests {
         // Reaching the Nth rank needs the curve's CUMULATIVE XP through N before its G$
         // bonus pays — so a pure honor-system (flat/Endless) grind never earns one. The
         // gate must track the curve exactly or honest players get silently under-paid.
-        assert_eq!(cumulative_xp_for_rank(rank_ordinal("Bronze")),   400);
-        assert_eq!(cumulative_xp_for_rank(rank_ordinal("Silver")),   1_300);
-        assert_eq!(cumulative_xp_for_rank(rank_ordinal("Gold")),     2_600);
-        assert_eq!(cumulative_xp_for_rank(rank_ordinal("Platinum")), 5_100);
-        assert_eq!(cumulative_xp_for_rank(rank_ordinal("Emerald")),  9_600);
-        assert_eq!(cumulative_xp_for_rank(rank_ordinal("Diamond")),  17_600);
-        // Iron is the start (never reached via a rank-up) so it gates at zero.
-        assert_eq!(rank_ordinal("Iron"), 0);
+        assert_eq!(cumulative_xp_for_rank(rank_ordinal("Tracker")),   400);
+        assert_eq!(cumulative_xp_for_rank(rank_ordinal("Stalker")),   1_300);
+        assert_eq!(cumulative_xp_for_rank(rank_ordinal("Marksman")),     2_600);
+        assert_eq!(cumulative_xp_for_rank(rank_ordinal("Ranger")), 5_100);
+        assert_eq!(cumulative_xp_for_rank(rank_ordinal("Ghost")),  9_600);
+        assert_eq!(cumulative_xp_for_rank(rank_ordinal("Apex")),  17_600);
+        // Drifter is the start (never reached via a rank-up) so it gates at zero.
+        assert_eq!(rank_ordinal("Drifter"), 0);
         assert_eq!(cumulative_xp_for_rank(0), 0);
     }
 
     #[test]
     fn the_ladder_array_is_the_only_source_of_rank_order() {
         // next_rank and rank_ordinal must agree with RANK_LADDER for EVERY tier. A
-        // hand-written copy of this order is what sorted Emerald below Silver on the
-        // leaderboard for as long as Emerald existed.
+        // hand-written copy of this order is what sorted Ghost below Stalker on the
+        // leaderboard for as long as Ghost existed.
         for (i, rank) in RANK_LADDER.iter().enumerate() {
             assert_eq!(rank_ordinal(rank), i as i32, "{} ordinal", rank);
             let expected = RANK_LADDER.get(i + 1).copied();
@@ -1859,12 +1376,12 @@ mod reward_amount_tests {
         // An unknown rank never invents a promotion and reads as the floor.
         assert_eq!(next_rank("Mythic"), None);
         assert_eq!(rank_ordinal("Mythic"), 0);
-        // Emerald specifically: second-highest, and strictly above Silver. This is the
+        // Ghost specifically: second-highest, and strictly above Stalker. This is the
         // exact assertion the leaderboard's old CASE would have failed.
-        assert_eq!(rank_ordinal("Emerald"), 5);
-        assert!(rank_ordinal("Emerald") > rank_ordinal("Silver"));
-        assert!(rank_ordinal("Diamond") > rank_ordinal("Emerald"));
-        assert!(rank_ordinal("Bronze") > rank_ordinal("Iron"));
+        assert_eq!(rank_ordinal("Ghost"), 5);
+        assert!(rank_ordinal("Ghost") > rank_ordinal("Stalker"));
+        assert!(rank_ordinal("Apex") > rank_ordinal("Ghost"));
+        assert!(rank_ordinal("Tracker") > rank_ordinal("Drifter"));
     }
 
     #[test]
@@ -1877,11 +1394,11 @@ mod reward_amount_tests {
                 "step {} must cost more than step {}", n, n - 1
             );
         }
-        // Calibration anchor: one full campaign clear (~2610 XP body-shot) reaches Gold
-        // but not Platinum, so finishing the story and finishing the rank arc coincide.
+        // Calibration anchor: one full campaign clear (~2610 XP body-shot) reaches Marksman
+        // but not Ranger, so finishing the story and finishing the rank arc coincide.
         const FULL_CAMPAIGN_XP: i32 = 2_610;
-        assert!(cumulative_xp_for_rank(rank_ordinal("Gold")) <= FULL_CAMPAIGN_XP);
-        assert!(cumulative_xp_for_rank(rank_ordinal("Platinum")) > FULL_CAMPAIGN_XP);
+        assert!(cumulative_xp_for_rank(rank_ordinal("Marksman")) <= FULL_CAMPAIGN_XP);
+        assert!(cumulative_xp_for_rank(rank_ordinal("Ranger")) > FULL_CAMPAIGN_XP);
     }
 
     /// Mirrors the climb loop in award_player so the ladder walk can be tested without
@@ -1894,7 +1411,7 @@ mod reward_amount_tests {
         loop {
             let ordinal = match next_rank(cur) {
                 Some(nr) => rank_ordinal(nr),
-                None if cur == "Diamond" => rank_ordinal("Diamond") + prestige + 1,
+                None if cur == "Apex" => rank_ordinal("Apex") + prestige + 1,
                 None => break,
             };
             let cost = rank_step_xp(ordinal);
@@ -1915,9 +1432,9 @@ mod reward_amount_tests {
     fn a_single_award_can_climb_several_ranks_and_pays_each() {
         // The old code subtracted ONE rank per fight, so a big award stranded the excess
         // in the bar and silently skipped the ranks it passed. A full campaign's XP
-        // dropped on a fresh Iron player must land Gold, having paid Bronze+Silver+Gold.
-        let (rank, left, crossed) = climb("Iron", 0, 2_610);
-        assert_eq!(rank, "Gold");
+        // dropped on a fresh Drifter player must land Marksman, having paid Tracker+Stalker+Marksman.
+        let (rank, left, crossed) = climb("Drifter", 0, 2_610);
+        assert_eq!(rank, "Marksman");
         assert_eq!(crossed, vec![1, 2, 3]);
         assert_eq!(left, 2_610 - 2_600);
         // Every rank passed through is its own payout, so none are skipped. Flat rate, so
@@ -1930,14 +1447,14 @@ mod reward_amount_tests {
     #[test]
     fn the_climb_never_deletes_xp_it_did_not_buy() {
         // Below the first step: nothing crossed, every point kept.
-        let (rank, left, crossed) = climb("Iron", 0, 399);
-        assert_eq!((rank.as_str(), left), ("Iron", 399));
+        let (rank, left, crossed) = climb("Drifter", 0, 399);
+        assert_eq!((rank.as_str(), left), ("Drifter", 399));
         assert!(crossed.is_empty());
         // Exactly one step: the bar empties to zero, not below it.
-        let (rank, left, _) = climb("Iron", 0, 400);
-        assert_eq!((rank.as_str(), left), ("Bronze", 0));
+        let (rank, left, _) = climb("Drifter", 0, 400);
+        assert_eq!((rank.as_str(), left), ("Tracker", 0));
         // An unknown rank has no next step and must leave the bar untouched rather than
-        // eat it (the guard that kept the old Diamond XP-delete bug from reappearing).
+        // eat it (the guard that kept the old Apex XP-delete bug from reappearing).
         let (rank, left, crossed) = climb("Mythic", 0, 999_999);
         assert_eq!((rank.as_str(), left), ("Mythic", 999_999));
         assert!(crossed.is_empty());
@@ -1945,10 +1462,10 @@ mod reward_amount_tests {
 
     #[test]
     fn past_diamond_the_climb_prestiges_instead_of_stalling() {
-        // Diamond with three prestiges' worth of XP banks three prestige events and
-        // keeps the remainder, paying each one (uncapped, the Diamond-bug fix).
-        let (rank, left, crossed) = climb("Diamond", 0, PRESTIGE_STEP_XP * 3 + 120);
-        assert_eq!(rank, "Diamond");
+        // Apex with three prestiges' worth of XP banks three prestige events and
+        // keeps the remainder, paying each one (uncapped, the Apex-bug fix).
+        let (rank, left, crossed) = climb("Apex", 0, PRESTIGE_STEP_XP * 3 + 120);
+        assert_eq!(rank, "Apex");
         assert_eq!(left, 120);
         assert_eq!(crossed, vec![7, 8, 9]);
     }
@@ -1958,7 +1475,7 @@ mod reward_amount_tests {
         // Prestige P is the (6 + P)th rank-up: a flat step each, forever.
         assert_eq!(rank_step_xp(7),  PRESTIGE_STEP_XP);
         assert_eq!(rank_step_xp(50), PRESTIGE_STEP_XP);
-        // The Way-2 gate keeps scaling past Diamond, so a grinder can't mint prestige
+        // The Way-2 gate keeps scaling past Apex, so a grinder can't mint prestige
         // bonuses without the refereed XP to back them.
         assert_eq!(
             cumulative_xp_for_rank(7),
@@ -2002,9 +1519,9 @@ mod reward_amount_tests {
 
     #[test]
     fn rank_up_reward_is_flat_at_every_rank() {
-        // Was 500 × ordinal, so the climb to Diamond paid 10,500 across six rank-ups.
+        // Was 500 × ordinal, so the climb to Apex paid 10,500 across six rank-ups.
         // Flat now: 1,200 for the same climb, and every prestige past it the same again.
-        for rank in ["Bronze", "Silver", "Gold", "Platinum", "Emerald", "Diamond"] {
+        for rank in ["Tracker", "Stalker", "Marksman", "Ranger", "Ghost", "Apex"] {
             assert_eq!(
                 rank_up_reward_g(rank_ordinal(rank)),
                 200,

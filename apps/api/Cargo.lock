@@ -4450,6 +4450,35 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
+name = "stillhunt-api"
+version = "0.1.0"
+dependencies = [
+ "actix-cors",
+ "actix-rt",
+ "actix-web",
+ "actix-ws",
+ "anyhow",
+ "chrono",
+ "dashmap",
+ "dotenvy",
+ "ethers",
+ "futures-util",
+ "hex",
+ "jsonwebtoken 9.3.1",
+ "rand 0.9.4",
+ "reqwest 0.12.28",
+ "rust_decimal",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "uuid 1.23.2",
+]
+
+[[package]]
 name = "string_cache"
 version = "0.8.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5153,35 +5182,6 @@ dependencies = [
  "js-sys",
  "serde_core",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "stillhunt-api"
-version = "0.1.0"
-dependencies = [
- "actix-cors",
- "actix-rt",
- "actix-web",
- "actix-ws",
- "anyhow",
- "chrono",
- "dashmap",
- "dotenvy",
- "ethers",
- "futures-util",
- "hex",
- "jsonwebtoken 9.3.1",
- "rand 0.9.4",
- "reqwest 0.12.28",
- "rust_decimal",
- "serde",
- "serde_json",
- "sqlx",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "uuid 1.23.2",
 ]
 
 [[package]]

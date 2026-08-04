@@ -25,13 +25,11 @@
 
 use actix_web::{web, HttpResponse};
 use ethers::types::{Address, U256};
-use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use serde::Serialize;
 use serde_json::json;
 use std::str::FromStr;
 
-use crate::services::chain_id::ChainId;
 use crate::services::earnings;
 use crate::utils::{is_valid_wallet, normalize_wallet};
 use crate::AppState;
@@ -65,28 +63,31 @@ pub async fn get_claimable(state: web::Data<AppState>, path: web::Path<String>) 
         return HttpResponse::BadRequest().json(json!({"error": "Invalid wallet address"}));
     }
 
-    let chain = ChainId::Avalanche;
-    let balance = earnings::balance(&state.db, &wallet, chain).await;
+        let balance = earnings::balance(&state.db, &wallet).await;
 
-    let (claimable, reason) = match state.avalanche.as_ref() {
-        None => (false, Some("Scrip payouts are not enabled yet.".to_string())),
+    let (claimable, reason) = match state.chain.as_ref() {
+        None => (false, Some("TALLY payouts are not enabled yet.".to_string())),
         Some(av) if !av.can_mint() => {
-            (false, Some("Scrip payouts are not configured yet.".to_string()))
+            (false, Some("TALLY payouts are not configured yet.".to_string()))
         }
+        // Balance is checked BEFORE the relay, unlike the claim path below. A
+        // player with nothing to claim is told exactly that, rather than being
+        // shown an outage that does not affect them — which is what happened when
+        // the ordering matched the write path.
+        Some(_) if balance <= Decimal::ZERO => (false, Some("Nothing to claim yet.".to_string())),
         Some(av) if !av.relay_can_pay().await => (
             false,
             // Named honestly. This is our problem, not the player's, and telling
             // them to retry would be advice that cannot work.
             Some("Payouts are paused while we top up the payout wallet. Your balance is safe.".to_string()),
         ),
-        Some(_) if balance <= Decimal::ZERO => (false, Some("Nothing to claim yet.".to_string())),
         Some(_) => (true, None),
     };
 
     HttpResponse::Ok().json(ClaimableResponse {
         balance,
-        symbol: chain.currency_symbol(),
-        chain_id: chain.as_i32(),
+        symbol: "TALLY",
+        chain_id: crate::services::chain::CHAIN_ID as i32,
         claimable,
         reason,
     })
@@ -105,14 +106,14 @@ pub async fn claim(state: web::Data<AppState>, path: web::Path<String>) -> HttpR
         return HttpResponse::BadRequest().json(json!({"error": "Invalid wallet address"}));
     }
 
-    let Some(av) = state.avalanche.as_ref().cloned() else {
+    let Some(av) = state.chain.as_ref().cloned() else {
         return HttpResponse::ServiceUnavailable()
-            .json(json!({"error": "Scrip payouts are not enabled yet"}));
+            .json(json!({"error": "TALLY payouts are not enabled yet"}));
     };
 
     if !av.can_mint() {
         return HttpResponse::ServiceUnavailable()
-            .json(json!({"error": "Scrip payouts are not configured yet"}));
+            .json(json!({"error": "TALLY payouts are not configured yet"}));
     }
 
     // BEFORE opening a claim, not after. Attaching a balance to a claim we already
@@ -134,8 +135,7 @@ pub async fn claim(state: web::Data<AppState>, path: web::Path<String>) -> HttpR
         Err(_) => return HttpResponse::BadRequest().json(json!({"error": "Invalid wallet address"})),
     };
 
-    let chain = ChainId::Avalanche;
-    let Some(open) = earnings::open_claim(&state.db, &wallet, chain).await else {
+        let Some(open) = earnings::open_claim(&state.db, &wallet).await else {
         return HttpResponse::Ok().json(json!({
             "claimed": false,
             "reason": "Nothing to claim",
@@ -152,7 +152,7 @@ pub async fn claim(state: web::Data<AppState>, path: web::Path<String>) -> HttpR
             .json(json!({"error": "Could not process that amount — nothing was charged"}));
     };
 
-    match av.mint_scrip(to, amount_wei).await {
+    match av.mint_tally(to, amount_wei).await {
         Ok(hash) => {
             let hash_str = format!("{:?}", hash);
             earnings::settle_claim(&state.db, open.id, &hash_str).await;
@@ -167,17 +167,16 @@ pub async fn claim(state: web::Data<AppState>, path: web::Path<String>) -> HttpR
                 open.amount,
                 Some(&hash_str),
                 None,
-                chain,
             )
             .await;
 
-            tracing::info!("claim paid: {} +{} SCRP tx={}", wallet, open.amount, hash_str);
+            tracing::info!("claim paid: {} +{} TALLY tx={}", wallet, open.amount, hash_str);
             HttpResponse::Ok().json(json!({
                 "claimed":  true,
                 "amount":   open.amount,
-                "symbol":   chain.currency_symbol(),
+                "symbol":   "TALLY",
                 "tx_hash":  hash_str,
-                "chain_id": chain.as_i32(),
+                "chain_id": crate::services::chain::CHAIN_ID as i32,
             }))
         }
         Err(e) => {
