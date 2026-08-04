@@ -19,7 +19,7 @@ const nextConfig: NextConfig = {
     // Run `npx tsc --noEmit` to see remaining type warnings.
     ignoreBuildErrors: true,
   },
-  webpack: (config) => {
+  webpack: (config, { webpack }) => {
     // wagmi v3's tempo/Connectors.js has a dynamic `import('accounts')` for the
     // Tempo Wallet devtools connector — this module doesn't exist outside wagmi's
     // own monorepo. Alias it to a stub so webpack doesn't fail the build.
@@ -29,12 +29,29 @@ const nextConfig: NextConfig = {
     // `porto`, whose
     // internal modules import `zod/mini`, an export path this repo's pinned zod
     // version doesn't expose. Same fix: alias the whole package out.
+    //
+    // The same barrel also pulls baseAccount() -> @base-org/account ->
+    // @coinbase/cdp-sdk, which imports @x402/* for a payments feature nothing
+    // here uses. Those are optional peers and are not installed, so webpack
+    // fails to resolve them. Stubbed rather than installed: adding three
+    // packages to satisfy an import path reached only by a connector we never
+    // construct is weight for nothing.
     config.resolve.alias = {
       ...config.resolve.alias,
       accounts: path.resolve(__dirname, 'src/lib/stub/accounts.ts'),
       porto$: path.resolve(__dirname, 'src/lib/stub/porto.ts'),
       'porto/internal': path.resolve(__dirname, 'src/lib/stub/porto.ts'),
     }
+
+    // Every `@x402/*` path at once, rather than the handful webpack happens to
+    // report first — resolving three only surfaced two more. A pattern is the
+    // right shape here because the set is whatever that SDK imports today.
+    config.plugins.push(
+      new webpack.NormalModuleReplacementPlugin(
+        /^@x402\//,
+        path.resolve(__dirname, 'src/lib/stub/x402.cjs'),
+      ),
+    )
     return config
   },
 }

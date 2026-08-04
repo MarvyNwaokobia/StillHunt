@@ -78,3 +78,9 @@ jobs:
       - name: unit tests
         working-directory: apps/web
         run: npx vitest run
+      # The production build, which typecheck and unit tests do NOT cover. The
+      # first Vercel deploy failed on webpack resolution that every other check
+      # passed cleanly — bundling pulls in dependency graphs that tsc never sees.
+      - name: production build
+        working-directory: apps/web
+        run: npm run build
