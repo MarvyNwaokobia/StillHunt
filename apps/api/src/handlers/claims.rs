@@ -70,13 +70,17 @@ pub async fn get_claimable(state: web::Data<AppState>, path: web::Path<String>) 
         Some(av) if !av.can_mint() => {
             (false, Some("TALLY payouts are not configured yet.".to_string()))
         }
+        // Balance is checked BEFORE the relay, unlike the claim path below. A
+        // player with nothing to claim is told exactly that, rather than being
+        // shown an outage that does not affect them — which is what happened when
+        // the ordering matched the write path.
+        Some(_) if balance <= Decimal::ZERO => (false, Some("Nothing to claim yet.".to_string())),
         Some(av) if !av.relay_can_pay().await => (
             false,
             // Named honestly. This is our problem, not the player's, and telling
             // them to retry would be advice that cannot work.
             Some("Payouts are paused while we top up the payout wallet. Your balance is safe.".to_string()),
         ),
-        Some(_) if balance <= Decimal::ZERO => (false, Some("Nothing to claim yet.".to_string())),
         Some(_) => (true, None),
     };
 
