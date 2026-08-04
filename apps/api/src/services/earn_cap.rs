@@ -90,9 +90,14 @@ pub fn apply_cap(earned: u64, proposed: u64, cap: u64, rate: f64) -> u64 {
 /// and every one of them clear the cap.
 pub async fn earned_this_week(db: &PgPool, wallet: &str) -> u64 {
     let since = week_start();
+    // No status filter: `earnings` has no such column, and an invalid query here
+    // fails silently through the `.ok()` below — which is exactly how this cap
+    // came to be measuring zero for everyone while looking configured. Every row
+    // in the window counts, because the cap measures what was EARNED; spending it
+    // afterwards does not restore headroom.
     let total: Option<i64> = sqlx::query_scalar(
         "SELECT COALESCE(SUM(amount), 0)::bigint FROM earnings
-          WHERE wallet_address = $1 AND created_at >= $2 AND status <> 'voided'",
+          WHERE wallet_address = $1 AND created_at >= $2",
     )
     .bind(wallet)
     .bind(since)
