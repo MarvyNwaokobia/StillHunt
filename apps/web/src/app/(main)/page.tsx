@@ -1,13 +1,13 @@
 'use client'
 
 import { Suspense } from 'react'
-import HomePage from '@/views/HomePage'
+import CampPage from '@/views/CampPage'
 import LoadingScreen from '@/components/ui/LoadingScreen'
 
 export default function Page() {
   return (
     <Suspense fallback={<LoadingScreen />}>
-      <HomePage />
+      <CampPage />
     </Suspense>
   )
 }

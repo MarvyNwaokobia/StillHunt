@@ -7,8 +7,8 @@ import './globals.css'
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'StillHunt · One human. One warrior.',
-  description: 'StillHunt · One human. One warrior. Fight, earn real TALLY, own everything. Built on GoodDollar + Celo.',
+  title: 'StillHunt · Take the contract. Walk back out.',
+  description: 'StillHunt · A first-person contract shooter. Breach, clear, extract — earn TALLY and own your gear on Avalanche. No wallet funding, no gas, no identity check.',
   icons: {
     icon: [
       { url: '/hunt-icon-16.png', sizes: '16x16', type: 'image/png' },

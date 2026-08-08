@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, Lock, Skull, Check, ChevronRight, Infinity as InfinityIcon } from 'lucide-react'
 import type { Player } from '@/types'
 import { CAMPAIGN } from '@/engine/fps/campaign'
+import { zoneMeta } from '@/lib/ledger'
 import { tryFullscreen } from '@/lib/fullscreen'
 import { warmFightScene } from '@/lib/retryImport'
 import LoadoutModal from './LoadoutModal'
@@ -15,16 +16,13 @@ interface Props {
   onBack: () => void
 }
 
-const ZONE_ACCENT: Record<string, string> = {
-  ASHFALL: '#ff9d5c',
-  'PROVING GROUND': '#8fc8e6',
-  'THE RIFT': '#9a6bff',
-}
-
 /**
- * The first-person Campaign select — the Operations board, OUTSIDE the game.
- * Pick an operation here and the game boots straight into it (/fight?op=i). The
- * next playable op is pve_level; cleared ops are replayable, later ones locked.
+ * The first-person Campaign select — the Ledger, OUTSIDE the game. Pick a contract
+ * here and the game boots straight into it (/fight?op=i). The next playable op is
+ * pve_level; cleared ops are replayable, later ones locked.
+ *
+ * Zone accents come from lib/ledger so this board and the camp screen tint the same
+ * zone the same colour.
  */
 export default function OperationsSelect({ player, onBack }: Props) {
   const router = useRouter()
@@ -63,14 +61,15 @@ export default function OperationsSelect({ player, onBack }: Props) {
 
         <div className="mb-5">
           <p className="text-[10px] uppercase tracking-[0.3em] font-bold mb-1" style={{ color: '#37d0e0' }}>Campaign</p>
-          <h1 className="font-display font-black text-white text-3xl">Operations</h1>
+          <h1 className="font-display font-black text-white text-3xl">The Ledger</h1>
           <p className="text-slate-500 text-sm mt-1">
-            {cleared}/{CAMPAIGN.length} cleared · clear each operation to unlock the next
+            {cleared}/{CAMPAIGN.length} cleared · clear each contract to open the next
           </p>
         </div>
 
         {zones.map(({ zone, ops }) => {
-          const zAccent = ZONE_ACCENT[zone] ?? '#37d0e0'
+          const zMeta = zoneMeta(zone)
+          const zAccent = zMeta.accent
           return (
             <div key={zone} className="mb-5">
               <p className="text-[11px] uppercase tracking-[0.28em] font-bold mb-2.5" style={{ color: zAccent }}>{zone}</p>
@@ -104,7 +103,7 @@ export default function OperationsSelect({ player, onBack }: Props) {
                             {m.boss && <Skull size={14} className="text-red-400 shrink-0" />}
                           </div>
                           <p className="text-slate-500 text-xs mt-0.5">
-                            {locked ? 'Clear the previous operation to unlock' : m.brief}
+                            {locked ? 'Clear the contract before it to open this one' : m.brief}
                           </p>
                         </div>
                         {!locked && (
@@ -127,7 +126,7 @@ export default function OperationsSelect({ player, onBack }: Props) {
             list where a player finishing op 15 will actually find it. */}
         <div className="mb-5">
           <p className="text-[11px] uppercase tracking-[0.28em] font-bold mb-2.5" style={{ color: '#eab308' }}>
-            After the Campaign
+            After the Ledger
           </p>
           <motion.button
             onClick={() => endlessUnlocked && router.push('/endless')}
@@ -155,7 +154,7 @@ export default function OperationsSelect({ player, onBack }: Props) {
                 <p className="text-slate-500 text-xs mt-0.5">
                   {endlessUnlocked
                     ? 'The rooms keep coming · resume anytime · every wave pays TALLY'
-                    : `Clear all ${CAMPAIGN.length} operations to unlock (${cleared} / ${CAMPAIGN.length})`}
+                    : `Clear all ${CAMPAIGN.length} contracts to unlock (${cleared} / ${CAMPAIGN.length})`}
                 </p>
               </div>
               {endlessUnlocked && (
