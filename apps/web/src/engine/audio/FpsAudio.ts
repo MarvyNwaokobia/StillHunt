@@ -88,6 +88,7 @@ export class FpsAudio {
   private lx = 0;
   private lz = 0;
   private lyaw = 0;
+  private llisten = 0;
 
   private stats_: FpsAudioStats = { shots: 0, impacts: 0, reloads: 0, footsteps: 0, unlocked: false, samples: 0, zone: 'ASHFALL' };
 
@@ -165,10 +166,14 @@ export class FpsAudio {
     return this.stats_.unlocked;
   }
 
-  setListener(x: number, z: number, yaw: number): void {
+  /** `listening` is 0..1 (see fps/approach.ts): holding Listen stretches how far
+   *  sound carries, so a door at the far end of the street becomes audible when the
+   *  player stops moving. */
+  setListener(x: number, z: number, yaw: number, listening = 0): void {
     this.lx = x;
     this.lz = z;
     this.lyaw = yaw;
+    this.llisten = Math.min(1, Math.max(0, listening));
   }
 
   stats(): FpsAudioStats {
@@ -250,7 +255,7 @@ export class FpsAudio {
   impact(kind: 'flesh' | 'wall', at: [number, number, number]): void {
     const ctx = this.ctx;
     if (!ctx) return;
-    const sp = spatialize(this.lx, this.lz, this.lyaw, at[0], at[2]);
+    const sp = spatialize(this.lx, this.lz, this.lyaw, at[0], at[2], this.llisten);
     if (sp.gain <= 0.001) return;
     const now = ctx.currentTime;
 
@@ -485,7 +490,7 @@ export class FpsAudio {
   enemyShot(at: [number, number, number]): void {
     const ctx = this.ctx;
     if (!ctx || this.rifle.length === 0) return;
-    const sp = spatialize(this.lx, this.lz, this.lyaw, at[0], at[2]);
+    const sp = spatialize(this.lx, this.lz, this.lyaw, at[0], at[2], this.llisten);
     if (sp.gain <= 0.001) return;
     const src = ctx.createBufferSource();
     src.buffer = this.rifle[(Math.random() * this.rifle.length) | 0];

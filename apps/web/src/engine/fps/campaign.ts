@@ -11,6 +11,7 @@
  */
 
 import type { CoverBox, EnemySpec, Attachment } from './index';
+import type { ApproachSpec } from './approach';
 import type { GunId } from '../combat/GunStats';
 
 export interface Objective {
@@ -38,6 +39,9 @@ export interface Mission {
   secondary?: GunId;  // sidearm slot (defaults to the pistol) — swap with the swap key
   attachments?: Attachment[]; // fitted at op start (e.g. NVG in the Rift)
   start: [number, number];
+  /** The walk in. Present on doorkicker ops; absent on survival/endless/seasonal,
+   *  which have no compound to approach. See fps/approach.ts. */
+  approach?: ApproachSpec;
   walls: CoverBox[];
   cover: CoverBox[];
   enemies: EnemySpec[];
@@ -217,6 +221,7 @@ export const CAMPAIGN: Mission[] = [
   {
     id: 'ash-1', zone: 'ASHFALL', op: 'OPERATION ASHFALL', name: 'BREACH & CLEAR', gun: AR, story: 'You walked out of the fire alive. Ember found your channel. The crew that lit Ashfall is dug into the first compound — go take it back.',
     brief: 'push the compound · clear both rooms · reach extract',
+    approach: { line: 'The compound is up the road. Walk it.' },
     start: A_START, walls: A_WALLS, cover: A_COVER,
     enemies: [
       { pos: [-4, 4], room: 1 }, { pos: [4, 5], room: 1 }, { pos: [-1, 3], room: 1 }, { pos: [3.5, 2.5], room: 1 },
@@ -227,6 +232,7 @@ export const CAMPAIGN: Mission[] = [
   {
     id: 'ash-2', zone: 'ASHFALL', op: 'OPERATION ASHFALL', name: 'HOLD THE LINE', gun: SMG, story: "They know you lived now, and they know you're coming. This block is dug in deeper. Hold the line and push through.",
     brief: 'more of them, dug in · clear the compound',
+    approach: { line: 'Same road, and this time they are expecting you.' },
     start: A2_START, walls: A2_WALLS, cover: A2_COVER,
     enemies: [
       { pos: [-5, 6], room: 1 }, { pos: [5, 5], room: 1 }, { pos: [-2, 4], room: 1 }, { pos: [3, 6], room: 1 }, { pos: [0, 3], room: 1 },
@@ -239,6 +245,7 @@ export const CAMPAIGN: Mission[] = [
     id: 'ash-3', zone: 'ASHFALL', op: 'OPERATION ASHFALL', name: 'THE WELL', gun: AR, secondary: SMG,
     story: "Ashfall's only clean water runs under the old well-house. Take it and hold it — the crew will throw everything they have left to take it back.",
     brief: 'seize the well-house · hold it until the counter-attack breaks',
+    approach: { line: 'The well-house is past the treeline. Quiet until you are on it.' },
     start: A3_START, walls: A3_WALLS, cover: A3_COVER,
     enemies: [
       { pos: [-4, 6], room: 1 }, { pos: [4, 5], room: 1 }, { pos: [-2, 3], room: 1 },
@@ -256,6 +263,7 @@ export const CAMPAIGN: Mission[] = [
     id: 'ash-4', zone: 'ASHFALL', op: 'OPERATION ASHFALL', name: 'SMOKE & ASH', gun: DMR, secondary: SMG,
     story: 'Cinder torched the granary to cover his retreat to the last house. Cut through the smoke and run his rearguard down before he digs in.',
     brief: 'push through the smoke · run the rearguard down',
+    approach: { line: 'You will smell the smoke before you see the block.' },
     start: A_START, walls: A_WALLS, cover: A_COVER,
     enemies: [
       { pos: [-4, 4], room: 1 }, { pos: [4, 5], room: 1 }, { pos: [-1, 3], room: 1 }, { pos: [3.5, 2.5], room: 1 }, { pos: [1, 4], room: 1 },
@@ -266,6 +274,7 @@ export const CAMPAIGN: Mission[] = [
   {
     id: 'ash-5', zone: 'ASHFALL', op: 'OPERATION ASHFALL', name: 'CINDER', gun: AR, story: "Cinder is the one who lit the match. He's holed up in the last house on the row. Put him down and Ashfall is yours.", boss: true,
     brief: 'the man who lit the fire is in that room · put him down',
+    approach: { line: 'Cinder is in the last house on the row. Take your time getting there.' },
     start: A3_START, walls: A3_WALLS, cover: A3_COVER,
     enemies: [
       { pos: [-4, 6], room: 1 }, { pos: [4, 5], room: 1 }, { pos: [-2, 3], room: 1 }, { pos: [3, 6], room: 1 },
@@ -278,6 +287,7 @@ export const CAMPAIGN: Mission[] = [
   {
     id: 'pg-1', zone: 'PROVING GROUND', op: 'OPERATION PROVING GROUND', name: 'THE HALL', gun: DMR, story: 'Past the ashes lies the Proving Ground — the compound where StillHunt trained the crew that burned your home. Take the hall, then the vault.', secondary: SMG,
     brief: 'his crew trained here · take the hall, then the vault',
+    approach: { line: 'The Proving Ground is over the rise. Nobody has seen you yet.' },
     start: B_START, walls: B_WALLS, cover: B_COVER,
     enemies: [
       { pos: [-5, 4], room: 1 }, { pos: [5, 3], room: 1 }, { pos: [-2, 0], room: 1 }, { pos: [3, -2], room: 1 }, { pos: [0, 2], room: 1 },
@@ -289,6 +299,7 @@ export const CAMPAIGN: Mission[] = [
     id: 'pg-2', zone: 'PROVING GROUND', op: 'OPERATION PROVING GROUND', name: 'THE YARD', gun: AR, secondary: SMG,
     story: 'The training yard sits between the hall and the cells. Clear it fast — the Warden hears gunfire and he starts moving prisoners.',
     brief: 'clear the yard · they know you are coming',
+    approach: { line: 'Approach from the field side. The yard is watched.' },
     start: A2_START, walls: A2_WALLS, cover: A2_COVER,
     enemies: [
       { pos: [-5, 6], room: 1 }, { pos: [5, 5], room: 1 }, { pos: [-2, 4], room: 1 }, { pos: [3, 6], room: 1 }, { pos: [0, 3], room: 1 },
@@ -301,6 +312,7 @@ export const CAMPAIGN: Mission[] = [
     id: 'pg-3', zone: 'PROVING GROUND', op: 'OPERATION PROVING GROUND', name: 'THE INFORMANT', gun: SMG, secondary: DMR,
     story: "One of StillHunt's own wants out, and he knows the way into the Rift. He's held in the back cells. Get to him and walk him out alive.",
     brief: 'reach the informant · escort him to extract · keep him alive',
+    approach: { line: 'He is somewhere inside and he is not armed. Get in clean.' },
     start: B_START, walls: B_WALLS, cover: B_COVER,
     hostage: [0, -13],
     enemies: [
@@ -319,6 +331,7 @@ export const CAMPAIGN: Mission[] = [
     id: 'pg-4', zone: 'PROVING GROUND', op: 'OPERATION PROVING GROUND', name: 'THE ARMORY', gun: DMR, secondary: AR,
     story: "The informant's word is good: the armory feeds the whole compound. Burn it and the Warden fights the last round with what he has on him.",
     brief: 'take the armory · cut off his resupply',
+    approach: { line: 'The armory sits at the back. Walk the long way round.' },
     start: A_START, walls: A_WALLS, cover: A_COVER,
     enemies: [
       { pos: [-4, 4], room: 1 }, { pos: [4, 5], room: 1 }, { pos: [-1, 3], room: 1 }, { pos: [3.5, 2.5], room: 1 }, { pos: [1, 4], room: 1 }, { pos: [-6, 3], room: 1 },
@@ -329,6 +342,7 @@ export const CAMPAIGN: Mission[] = [
   {
     id: 'pg-5', zone: 'PROVING GROUND', op: 'OPERATION PROVING GROUND', name: 'THE WARDEN', gun: AR, story: 'The Warden runs the Proving Ground and he will not step aside. Break him and the road to the Rift opens.', boss: true,
     brief: 'the Warden runs this place · he will not step aside',
+    approach: { line: 'The Warden knows this ground better than you do. Go slow.' },
     start: B_START, walls: B_WALLS, cover: B_COVER,
     enemies: [
       { pos: [-5, 4], room: 1 }, { pos: [5, 3], room: 1 }, { pos: [-2, 1], room: 1 }, { pos: [2, -2], room: 1 }, { pos: [0, 3], room: 1 }, { pos: [-4, -3], room: 1 },
@@ -341,6 +355,7 @@ export const CAMPAIGN: Mission[] = [
   {
     id: 'rift-1', zone: 'THE RIFT', op: 'OPERATION RIFT', name: 'INTO THE DARK', gun: SMG, story: "StillHunt's channel goes quiet past here. This is the Rift — the dark place he disappears into. Push in and find him.", attachments: ['nvg'],
     brief: 'his channel goes quiet here · push through and find him',
+    approach: { line: 'His channel died out here somewhere. Find where it went.' },
     start: C_START, walls: C_WALLS, cover: C_COVER,
     enemies: [
       { pos: [-4, 2], room: 1 }, { pos: [4, 1], room: 1 }, { pos: [-1, 0], room: 1 }, { pos: [2, -3], room: 1 }, { pos: [-2, 3], room: 1 },
@@ -352,6 +367,7 @@ export const CAMPAIGN: Mission[] = [
     id: 'rift-2', zone: 'THE RIFT', op: 'OPERATION RIFT', name: 'DEEPER', gun: SMG, secondary: AR, attachments: ['nvg'],
     story: 'The tunnels open into a drowned hall. StillHunt is letting you come to him — every step in is a step you will have to fight back out of.',
     brief: 'the hall runs deep · clear it in the dark',
+    approach: { line: 'No light past this point. Let your eyes settle before you move.' },
     start: B_START, walls: B_WALLS, cover: B_COVER,
     enemies: [
       { pos: [-5, 4], room: 1 }, { pos: [5, 3], room: 1 }, { pos: [-2, 0], room: 1 }, { pos: [3, -2], room: 1 }, { pos: [0, 2], room: 1 },
@@ -364,6 +380,7 @@ export const CAMPAIGN: Mission[] = [
     id: 'rift-3', zone: 'THE RIFT', op: 'OPERATION RIFT', name: 'LIGHTS OUT', gun: SMG, secondary: AR, blackout: true,
     story: 'Whatever the Rift is, it eats light. Your goggles die at the threshold. There is no seeing your way through this one — only the flash of your own gun.',
     brief: 'NVG is jammed · clear the dark by muzzle-flash alone',
+    approach: { line: 'Your optics are dead out here too. Walk it blind.' },
     start: C_START, walls: C_WALLS, cover: C_COVER,
     enemies: [
       { pos: [-4, 2], room: 1 }, { pos: [4, 1], room: 1 }, { pos: [-1, 0], room: 1 }, { pos: [2, -3], room: 1 },
@@ -375,6 +392,7 @@ export const CAMPAIGN: Mission[] = [
     id: 'rift-4', zone: 'THE RIFT', op: 'OPERATION RIFT', name: 'THE THRESHOLD', gun: AR, secondary: SMG, attachments: ['nvg'],
     story: 'His guard closes ranks at the last door. Break the threshold and there is nothing left between you and the voice on the radio.',
     brief: 'break his last guard · the door to StillHunt is beyond',
+    approach: { line: 'Last of his people are between you and that door.' },
     start: A2_START, walls: A2_WALLS, cover: A2_COVER,
     enemies: [
       { pos: [-5, 6], room: 1 }, { pos: [5, 5], room: 1 }, { pos: [-2, 4], room: 1 }, { pos: [3, 6], room: 1 }, { pos: [0, 3], room: 1 },
@@ -385,6 +403,7 @@ export const CAMPAIGN: Mission[] = [
   {
     id: 'rift-stillhunt', zone: 'THE RIFT', op: 'OPERATION RIFT', name: 'STILLHUNT', gun: PROTO, story: 'The voice that has been on your radio the whole way finally has a face and a body. This is the last room. End it.', secondary: AR, attachments: ['nvg'], boss: true,
     brief: 'the voice on your radio has a face · end it',
+    approach: { line: 'He knows you are coming. He has known the whole way.' },
     start: C_START, walls: C_WALLS, cover: C_COVER,
     enemies: [
       { pos: [-4, 2], room: 1 }, { pos: [4, 1], room: 1 }, { pos: [-1, -1], room: 1 }, { pos: [2, -3], room: 1 },

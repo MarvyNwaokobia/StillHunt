@@ -12,6 +12,12 @@
  * Conventions match BattleCamera: listener forward = (-sin yaw, -cos yaw).
  */
 
+import { LISTEN } from '../fps/approach';
+
+/** Both pulled from the approach's own tuning so the two cannot drift apart. */
+const LISTEN_HALF_LOUD_MULT = LISTEN.HALF_LOUD_MULT;
+const LISTEN_RANGE_MULT = LISTEN.RANGE_MULT;
+
 export interface SpatialParams {
   /** -1 (hard left) .. 1 (hard right) for a StereoPannerNode. */
   pan: number;
@@ -30,13 +36,25 @@ const LPF_OPEN = 18000;
 const LPF_FAR = 2600;   // fully-distant cutoff
 const LPF_BEHIND = 3200; // fully-behind cutoff (applied multiplicatively)
 
+/**
+ * How hard the player is listening, 0..1 (see fps/approach.ts). Standing still and
+ * holding Listen stretches both distance constants, so a door or a boot on gravel
+ * that was inaudible at 30m carries. It only ever makes a source LOUDER — the
+ * falloff curve keeps its shape, the scale moves — so nothing that was audible
+ * while moving goes quiet when you stop.
+ */
 export function spatialize(
   listenerX: number,
   listenerZ: number,
   listenerYaw: number,
   sourceX: number,
   sourceZ: number,
+  listening = 0,
 ): SpatialParams {
+  const l = Math.min(1, Math.max(0, listening));
+  const halfLoudAt = HALF_LOUD_AT * (1 + (LISTEN_HALF_LOUD_MULT - 1) * l);
+  const maxRange = MAX_RANGE * (1 + (LISTEN_RANGE_MULT - 1) * l);
+
   const dx = sourceX - listenerX;
   const dz = sourceZ - listenerZ;
   const dist = Math.hypot(dx, dz);
@@ -59,11 +77,12 @@ export function spatialize(
   // Pan follows the side component but never fully collapses one ear.
   const pan = clamp(side * 0.85, -0.85, 0.85);
 
-  // Inverse falloff tuned so HALF_LOUD_AT is exactly 0.5, hard floor at range.
-  const gain = dist >= MAX_RANGE ? 0 : 1 / (1 + dist / HALF_LOUD_AT);
+  // Inverse falloff tuned so halfLoudAt is exactly 0.5, hard floor at range.
+  const gain = dist >= maxRange ? 0 : 1 / (1 + dist / halfLoudAt);
 
-  // Distance closes the filter; behind-ness closes it further.
-  const distT = Math.min(1, dist / MAX_RANGE);
+  // Distance closes the filter; behind-ness closes it further. Listening stretches
+  // the range too, so a distant source keeps more of its highs while you're still.
+  const distT = Math.min(1, dist / maxRange);
   const distLpf = LPF_OPEN + (LPF_FAR - LPF_OPEN) * distT;
   const behindT = front < 0 ? -front : 0; // 0 ahead → 1 fully behind
   const behindMul = 1 + (LPF_BEHIND / LPF_OPEN - 1) * behindT;

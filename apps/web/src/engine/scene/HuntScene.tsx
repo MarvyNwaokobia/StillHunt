@@ -18,6 +18,10 @@ import { STARTER_GUN_ID, type GunId } from '../combat/GunStats';
 import type { AmmoId, AttachmentId, AttachmentSlot } from '../combat/Loadout';
 import { FpsAudio } from '../audio';
 import { computeEdgeArrow } from '../verb/threatArrow';
+import {
+  approachSpawn, approachBounds, approachFloor, hasApproach, isApproaching,
+  openRearGate, listenWeight, LISTEN, ARENA_FLOOR,
+} from '../fps/approach';
 import { useGunPrototypes, ALL_GUN_IDS } from './gunModels';
 import { OperatorRig, type OperatorApi } from './OperatorRig';
 import { CAMPAIGN, CAMPAIGN_KEY, PROGRESS_KEY, ZONE_THEMES, themeForMission, SURVIVAL_MISSION, GAUNTLET_MISSION, ENDLESS_MISSION, SEASONAL_MISSION, survivalWaveCount, survivalWaveHp, gauntletWaveCount, gauntletWaveHp, type Mission } from '../fps/campaign';
@@ -299,7 +303,10 @@ const WEAPON_VIEW: Record<GunId, { scale: number; z: number; y: number }> = {
 
 // The mission compound is data now (engine/fps/campaign.ts). The scene runs ONE
 // Mission at a time, loaded from CAMPAIGN[missionIndex]; completing it advances.
-const FLOOR_W = 22, FLOOR_D = 38;
+// The authored plane. Its depth now lives in fps/approach.ts, which grows it for the
+// walk-in corridor and derives the player's clamp from the same numbers — two copies
+// of the arena's size is exactly how a spawn ends up off the edge of the floor.
+const FLOOR_W = ARENA_FLOOR.width;
 
 /** One unit cube shared by every wall and cover box in the scene. Walls are scaled
  *  copies of it, so streaming a room in or out costs no GPU buffer allocation. */
@@ -597,10 +604,19 @@ function FpsWorld({ hud, controls, audio, lowSpec, lightFx, minimal, mission, on
   const rigCell = useRef({ x: NaN, z: NaN, sunZ: NaN });
 
   const START = useMemo<[number, number]>(() => {
-    if (!endless) return mission.start;
+    // A doorkicker op with an approach starts OUTSIDE the compound and walks in.
+    if (!endless) return approachSpawn(mission);
     const wave = endlessOpts?.startWave ?? 1;
     return spawnPointFor(zForWaveStart(wave, endlessOpts?.seed ?? 1));
-  }, [endless, mission.start, endlessOpts?.startWave, endlessOpts?.seed]);
+  }, [endless, mission, endlessOpts?.startWave, endlessOpts?.seed]);
+
+  /** The walk-in corridor's geometry. Bounds, floor and spawn are derived together
+   *  (fps/approach.ts) so they cannot drift apart and strand the player. */
+  const APPROACH = useMemo(() => ({
+    on: !endless && hasApproach(mission),
+    bounds: approachBounds(mission),
+    floor: approachFloor(mission),
+  }), [endless, mission]);
 
   const sim = useMemo(() => {
     // The op's issued kit (e.g. NVG in the Rift) plus the player's chosen field kit.
@@ -641,7 +657,9 @@ function FpsWorld({ hud, controls, audio, lowSpec, lightFx, minimal, mission, on
   // What actually gets drawn. Authored missions are static; an endless run redraws
   // from the live chain window each time geometry is streamed in or out (geoTick).
   const LEVEL_WALLS = useMemo(() => {
-    if (!endless) return mission.walls;
+    // The rear wall is solid in every authored layout, and an approach puts the
+    // player on the far side of it — so it needs a gate to walk through.
+    if (!endless) return hasApproach(mission) ? openRearGate(mission.walls) : mission.walls;
     const out = [...entryCap(zForWaveStart(endlessOpts?.startWave ?? 1, endlessOpts?.seed ?? 1))];
     for (const r of chain.current.rooms) out.push(...r.walls);
     return out;
@@ -662,6 +680,8 @@ function FpsWorld({ hud, controls, audio, lowSpec, lightFx, minimal, mission, on
   const adsCur = useRef(0);
   const leanCur = useRef(0);
   const crouchCur = useRef(0);
+  /** 0..1 how hard the player is listening. Held Alt pins them and opens the ears. */
+  const listenCur = useRef(0);
   const bobPhase = useRef(0);
   const footstepAt = useRef(0);
   const swayT = useRef(0); // bodycam handheld drift (slice 7)
@@ -930,6 +950,18 @@ function FpsWorld({ hud, controls, audio, lowSpec, lightFx, minimal, mission, on
   // remounts per op, so this fires whenever the zone changes).
   useEffect(() => { audio.setZone(mission.zone); }, [audio, mission.zone]);
 
+  // ── The compound sleeps until you breach it ──
+  // Enemies are CONSTRUCTED active, and restartMission()'s setAllActive(false) only
+  // runs on a death or a completion — so on the very first play of an op the front
+  // room was awake from frame one and could open on the player during the walk in.
+  // (Retries were already stealthy, which is why the two never matched.) The breach
+  // objective's `activateRoom: 1` wakes it; this is what gives that call something
+  // to do.
+  useEffect(() => {
+    if (!APPROACH.on) return;
+    sim.setAllActive(false);
+  }, [APPROACH.on, sim]);
+
   // ── Probe hooks (headless verification) ──
   useEffect(() => {
     const w = window as unknown as Record<string, unknown>;
@@ -1072,6 +1104,9 @@ function FpsWorld({ hud, controls, audio, lowSpec, lightFx, minimal, mission, on
     // ── Stances FIRST (look sensitivity is reduced while aiming down sights) ──
     const adsWant = held('ShiftLeft') || held('ShiftRight') || mouseBtn.current.has(2) || ct.ads ? 1 : 0;
     const crouchWant = held('KeyC') ? 1 : 0;
+    // LISTEN — hold to stop dead and let distant sound carry. Stillness has to buy
+    // the player something or the title is decoration. Ramped so it never pops.
+    listenCur.current = listenWeight(listenCur.current, held('AltLeft') || held('AltRight'), dt);
     const leanWant = (held('KeyE') ? 1 : 0) - (held('KeyQ') ? 1 : 0);
     adsCur.current += (adsWant - adsCur.current) * Math.min(1, dt * 12);
     crouchCur.current += (crouchWant - crouchCur.current) * Math.min(1, dt * 10);
@@ -1244,7 +1279,9 @@ function FpsWorld({ hud, controls, audio, lowSpec, lightFx, minimal, mission, on
     const mf = Math.max(-1, Math.min(1, (held('KeyW') ? 1 : 0) - (held('KeyS') ? 1 : 0) + ct.moveY));
     const ms = Math.max(-1, Math.min(1, (held('KeyD') ? 1 : 0) - (held('KeyA') ? 1 : 0) + ct.moveX));
     const moving = Math.abs(mf) > 0.02 || Math.abs(ms) > 0.02;
-    let speed = WALK * (1 - 0.45 * adsCur.current) * (1 - (1 - CROUCH_MOVE) * crouchCur.current);
+    // Listening pins you in place — that stillness IS the price of hearing further.
+    let speed = WALK * (1 - 0.45 * adsCur.current) * (1 - (1 - CROUCH_MOVE) * crouchCur.current)
+      * (1 - (1 - LISTEN.MOVE) * listenCur.current);
     if (adsCur.current > 0.5) speed = Math.min(speed, WALK * ADS_MOVE);
     const sinY = Math.sin(yaw.current), cosY = Math.cos(yaw.current);
     // forward on ground = (-sinY, 0, -cosY); right = (cosY, 0, -sinY)
@@ -1295,7 +1332,7 @@ function FpsWorld({ hud, controls, audio, lowSpec, lightFx, minimal, mission, on
     if (Math.abs(cam.fov - adsFov) > 0.05) { cam.fov = adsFov; cam.updateProjectionMatrix(); }
     cam.updateMatrixWorld();
     cam.matrixWorldInverse.copy(cam.matrixWorld).invert(); // for threat-arrow projection
-    audio.setListener(pos.current.x, pos.current.z, yaw.current); // camera is the listener
+    audio.setListener(pos.current.x, pos.current.z, yaw.current, listenCur.current); // camera is the listener
 
     // ── Recoil recovery + damage-flash decay ──
     recoilP.current += (0 - recoilP.current) * Math.min(1, dt * RECOIL_RECOVER);
@@ -1615,7 +1652,9 @@ function FpsWorld({ hud, controls, audio, lowSpec, lightFx, minimal, mission, on
       const oc = OBJECTIVES[objective.current];
       const el = hud.current.objArrow;
       if (el) {
-        if (oc && completeAt.current < 0) {
+        // No marker during the walk in. The objective LINE is the navigation — a
+        // compass arrow to the door would turn the approach back into a corridor.
+        if (oc && completeAt.current < 0 && !isApproaching(mission, objective.current)) {
           arrowWp.set(oc.pos[0], 1.4, oc.pos[1]);
           arrowCs.copy(arrowWp).applyMatrix4(cam.matrixWorldInverse);
           arrowWp.project(cam);
@@ -1981,9 +2020,10 @@ function FpsWorld({ hud, controls, audio, lowSpec, lightFx, minimal, mission, on
       cx = Math.max(-ENDLESS_HALF_W, Math.min(ENDLESS_HALF_W, cx));
       cz = Math.max(front + 0.5, Math.min(back - 0.2, cz));
     } else {
-      // Arena bounds.
-      cx = Math.max(-9.4, Math.min(9.4, cx));
-      cz = Math.max(-17.6, Math.min(17.4, cz));
+      // Arena bounds — widened along +Z when the op has a walk-in.
+      const b = APPROACH.bounds;
+      cx = Math.max(b.minX, Math.min(b.maxX, cx));
+      cz = Math.max(b.minZ, Math.min(b.maxZ, cz));
     }
 
     // You cannot walk through people either.
@@ -2155,7 +2195,11 @@ function FpsWorld({ hud, controls, audio, lowSpec, lightFx, minimal, mission, on
         }
       } else if (objN && completeAt.current < 0 && sim.time > briefingUntil.current - 0.5) {
         h.objText.style.opacity = '1';
-        if (objN.kind === 'defend') {
+        if (isApproaching(mission, objective.current)) {
+          // The walk in: prose, and no distance readout. A metre count would let the
+          // player navigate by watching a number instead of watching the world.
+          h.objText.textContent = mission.approach!.line.toUpperCase();
+        } else if (objN.kind === 'defend') {
           // a hold objective counts down the seconds you still owe on the point
           const left = Math.max(0, Math.ceil((objN.holdSecs ?? 20) - holdProgress.current));
           // Match the banking ring (HOLD_RADIUS), not the tighter reach ring, so holding
@@ -2364,8 +2408,15 @@ function FpsWorld({ hud, controls, audio, lowSpec, lightFx, minimal, mission, on
       {/* burned ground */}
       {/* endless rides this plane along under the player (see the endless flow), so
           the chain can run to -Z forever without an enormous floor */}
-      <mesh ref={floorRef} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[FLOOR_W, endless ? ENDLESS_FLOOR_D : FLOOR_D]} />
+      {/* An approach grows this plane forward and shifts its centre to match, so the
+          walk-in corridor has ground under it and the compound end does not move. */}
+      <mesh
+        ref={floorRef}
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, 0, endless ? 0 : APPROACH.floor.centerZ]}
+        receiveShadow
+      >
+        <planeGeometry args={[FLOOR_W, endless ? ENDLESS_FLOOR_D : APPROACH.floor.depth]} />
         <meshStandardMaterial {...floorMaps} color={theme.floorTint} roughness={1} metalness={0} />
       </mesh>
 
