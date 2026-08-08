@@ -532,10 +532,20 @@ function FpsWorld({ hud, controls, audio, lowSpec, lightFx, minimal, mission, on
   const GUN = PRIMARY;
   const LOADOUT = useMemo<GunId[]>(() => [PRIMARY, mission.secondary ?? 'sidearm'], [PRIMARY, mission.secondary]);
   const endless = !!mission.endless;
+  /** The mission's walls with the approach gate cut into the rear one.
+   *
+   *  BOTH the renderer and the collider set must read this. They were derived
+   *  separately at first, and the result was a gate you could see through and not
+   *  walk through — the player stopped dead at the wall with an open doorway in front
+   *  of them. Anything that needs this mission's walls takes them from here. */
+  const MISSION_WALLS = useMemo(
+    () => (!endless && hasApproach(mission) ? openRearGate(mission.walls) : mission.walls),
+    [endless, mission],
+  );
   // In endless the collider set is LIVE: rooms are appended ahead of the player and
   // pruned behind them, so this array is mutated in place rather than rebuilt. Every
   // per-frame loop below already re-reads it, so they pick up new geometry for free.
-  const COLLIDERS = useMemo(() => [...mission.walls, ...mission.cover], [mission]);
+  const COLLIDERS = useMemo(() => [...MISSION_WALLS, ...mission.cover], [MISSION_WALLS, mission.cover]);
   const theme = themeForMission(mission);
   const isFinale = !endless && mission.id === CAMPAIGN[CAMPAIGN.length - 1].id;
   const survival = !!mission.survival;
@@ -657,13 +667,11 @@ function FpsWorld({ hud, controls, audio, lowSpec, lightFx, minimal, mission, on
   // What actually gets drawn. Authored missions are static; an endless run redraws
   // from the live chain window each time geometry is streamed in or out (geoTick).
   const LEVEL_WALLS = useMemo(() => {
-    // The rear wall is solid in every authored layout, and an approach puts the
-    // player on the far side of it — so it needs a gate to walk through.
-    if (!endless) return hasApproach(mission) ? openRearGate(mission.walls) : mission.walls;
+    if (!endless) return MISSION_WALLS;
     const out = [...entryCap(zForWaveStart(endlessOpts?.startWave ?? 1, endlessOpts?.seed ?? 1))];
     for (const r of chain.current.rooms) out.push(...r.walls);
     return out;
-  }, [endless, mission.walls, geoTick, endlessOpts?.startWave, endlessOpts?.seed]);
+  }, [endless, MISSION_WALLS, geoTick, endlessOpts?.startWave, endlessOpts?.seed]);
   const LEVEL_COVER = useMemo(() => {
     if (!endless) return mission.cover;
     const out: typeof mission.cover = [];
@@ -1007,6 +1015,17 @@ function FpsWorld({ hud, controls, audio, lowSpec, lightFx, minimal, mission, on
         kills: sim.snapshot().stats.kills,
       };
     };
+    // What the player is actually being told: the objective line, and whether the
+    // marker is up. The approach suppresses the marker and swaps the metre count for
+    // prose, and neither is observable from sim state alone.
+    w.__huntHud = () => ({
+      objective: hud.current.objText?.textContent ?? '',
+      objectiveShown: hud.current.objText?.style.opacity !== '0',
+      markerShown: (hud.current.objArrow?.style.opacity ?? '0') !== '0',
+    });
+    // The world-space objective beacon. Distinct from the HUD's edge arrow, and the
+    // one that actually stands on the door — both have to be down during the walk in.
+    w.__huntBeacon = () => !!waypointRef.current?.visible;
     w.__huntWarp = (x: number, z: number) => { pos.current.set(x, EYE_STAND, z); };
     w.__huntSkipBriefing = () => { briefingUntil.current = 0; };
     w.__huntXp = () => ({ careerXp: careerXp.current, rank: rankForXp(careerXp.current), intoRank: xpIntoRank(careerXp.current) });
@@ -1940,10 +1959,13 @@ function FpsWorld({ hud, controls, audio, lowSpec, lightFx, minimal, mission, on
     if (snap.playerAlive && snap.playerHp < 35) say('lowHp');
     if (!snap.playerAlive) say('opHeroDown');
     pumpStory(now);
-    // waypoint beacon follows the current objective
+    // waypoint beacon follows the current objective — but NOT during the walk in.
+    // Suppressing the edge arrow alone left this one still burning on the door, which
+    // is the stronger waypoint of the two: a glowing marker on the exact spot turns
+    // the approach back into a corridor no matter what the objective line says.
     if (waypointRef.current) {
       const cur = OBJECTIVES[objective.current];
-      if (cur && completeAt.current < 0) {
+      if (cur && completeAt.current < 0 && !isApproaching(mission, objective.current)) {
         waypointRef.current.visible = true;
         waypointRef.current.position.set(cur.pos[0], 0, cur.pos[1]);
         const beacon = waypointRef.current.children[0] as THREE.Mesh | undefined;
@@ -3500,7 +3522,10 @@ export function HuntScene({ onOpStart, onOpCleared, onOpFailed, startMission, re
         // biggest desktop cost. `minimal` locks a struggling machine to DPR 1; mobile
         // keeps 1.5; capable desktops keep 2 (AdaptiveDpr still trims within bounds).
         dpr={isTouch ? [1, 1.5] : (minimal ? [1, 1] : [1, 2])}
-        camera={{ position: [mission.start[0], 1.6, mission.start[1]], fov: 55, near: 0.01, far: 320 }}
+        // The APPROACH spawn, not mission.start — otherwise the first frame renders
+        // from inside the compound and snaps out to the treeline once the loop takes
+        // over, which reads as a stutter on every op start.
+        camera={{ position: [approachSpawn(mission)[0], 1.6, approachSpawn(mission)[1]], fov: 55, near: 0.01, far: 320 }}
       >
         {/* Auto-degrade: after a warmup, sustained declines (or the flipflop fallback)
             flip `degraded` → the minimal tier. Only matters while quality==='auto'. */}

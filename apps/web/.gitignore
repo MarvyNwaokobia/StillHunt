@@ -34,3 +34,5 @@ test-results/
 public/sw.js
 public/sw.js.map
 public/swe-worker-*.js
+probe-shots/
+playwright-report/
