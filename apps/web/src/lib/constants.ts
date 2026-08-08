@@ -17,17 +17,24 @@ export const RANK_COLORS: Record<Rank, string> = {
   Apex: '#b9f2ff',
 }
 
-// TALLY for REACHING a rank — it GROWS with the rank (500 more each step): the higher you
-// climb, the bigger the payout. Mirrors the server's rank_up_reward_g (STEP × ordinal)
-// in apps/api battles.rs. Drifter is the start (never reached via a rank-up).
+// TALLY for REACHING a rank — FLAT: every rank-up pays the same, whichever rank it is.
+// Mirrors RANK_UP_REWARD_G in apps/api handlers/battles.rs, which is the authority: the
+// server settles this on-chain, once per (wallet, rank).
+//
+// It used to be STEP × ordinal here (500 → 3,000, 10,500 across the whole climb) and the
+// comment claimed the server matched. The server had already been cut to a flat 200
+// because the scaling curve was unaffordable against the real pool — so this table was
+// quoting players up to 15× what they were actually paid, in the rank-up banner the
+// fight HUD shows at the moment of the reward (engine/scene/HuntScene.tsx, via gReward).
+// If the server constant moves again, move it here in the same change.
 export const RANK_G_REWARD: Record<Rank, number> = {
-  Drifter: 500,       // unused (you start here)
-  Tracker: 500,     // 1st rank-up
-  Stalker: 1000,    // 2nd
-  Marksman: 1500,      // 3rd
-  Ranger: 2000,  // 4th
-  Ghost: 2500,   // 5th
-  Apex: 3000,   // 6th
+  Drifter: 200,     // unused (you start here)
+  Tracker: 200,     // 1st rank-up
+  Stalker: 200,     // 2nd
+  Marksman: 200,    // 3rd
+  Ranger: 200,      // 4th
+  Ghost: 200,       // 5th
+  Apex: 200,        // 6th
 }
 
 // XP to REACH each rank: the size of the bar you fill while sitting at the rank below.

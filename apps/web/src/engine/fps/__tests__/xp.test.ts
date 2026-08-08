@@ -107,11 +107,14 @@ describe('earn loop: rank from XP', () => {
     expect(rankUpsBetween(0, 2_610)).toEqual(['Tracker', 'Stalker', 'Marksman']);
   });
 
-  it('pays more TALLY the higher the rank', () => {
-    expect(gReward('Tracker')).toBe(500);
-    expect(gReward('Stalker')).toBe(1_000);
-    expect(gReward('Apex')).toBe(3_000);
-    expect(gReward('Apex')).toBeGreaterThan(gReward('Tracker'));
+  // Flat, and it must STAY flat: this number is rendered in the fight HUD's rank-up
+  // banner, so anything the server does not settle is a promise made mid-reward.
+  // The authority is RANK_UP_REWARD_G in apps/api handlers/battles.rs.
+  it('pays a flat TALLY reward at every rank', () => {
+    expect(gReward('Tracker')).toBe(200);
+    expect(gReward('Stalker')).toBe(200);
+    expect(gReward('Apex')).toBe(200);
+    expect(gReward('Apex')).toBe(gReward('Tracker'));
   });
 });
 
