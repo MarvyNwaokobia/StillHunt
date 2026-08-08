@@ -11,7 +11,7 @@ import {
   FpsSim,
   xpForKill, rankForXp, xpIntoRank, xpBarSize, rankUpsBetween, gReward, careerXpFor, XP_REWARD, rayAABB, aabbOfCover, slideMove, type FpsInput, type Vec3, type Rank, type Attachment,
 } from '../fps';
-import { RANK_COLORS } from '../../lib/constants';
+import { RANK_COLORS, CONTRACT_FEE_TALLY } from '../../lib/constants';
 import { linesFor, SPEAKER_META, type PresenceLine, type PresenceTrigger } from '../story/presence';
 import { GUN_FEEL } from '../combat/GunFeel';
 import { STARTER_GUN_ID, type GunId } from '../combat/GunStats';
@@ -3014,7 +3014,7 @@ export function HuntScene({ onOpStart, onOpCleared, onOpFailed, startMission, re
    *  session is confirmed (or the player is signed out); FALSE if the server can't be
    *  reached, which puts the scene on a Retry gate instead of into an uncounted run.
    *  Omitted at `/dev/verb`. */
-  onOpStart?: (level: number) => Promise<boolean> | void;
+  onOpStart?: (level: number) => Promise<boolean | 'payment'> | void;
   /** Fires when a campaign op is cleared — `/fight` uses it to record the real,
    *  server-authoritative reward (XP → rank → TALLY). Omitted at `/dev/verb`, which
    *  stays a self-contained sandbox. */
@@ -3110,7 +3110,7 @@ export function HuntScene({ onOpStart, onOpCleared, onOpFailed, startMission, re
   // fight begins. We freeze the sim and show a "connecting / retry" screen until that
   // token is confirmed, so a cold or asleep server can never let you play a run that
   // silently won't count. 'ok' = clear to fight; 'connecting' / 'error' = frozen.
-  const [gate, setGate] = useState<'ok' | 'connecting' | 'error'>('ok');
+  const [gate, setGate] = useState<'ok' | 'connecting' | 'error' | 'payment'>('ok');
   const gateRef = useRef(false);             // read by the frame loop to freeze the sim
   const gateConnectRef = useRef<(() => void) | null>(null); // Retry re-runs this
   // The PREVIOUS op's completion request. Starting the next op must wait for it: clearing
@@ -3136,7 +3136,10 @@ export function HuntScene({ onOpStart, onOpCleared, onOpFailed, startMission, re
         if (cancelled) return;
         const ok = await Promise.resolve(onOpStartRef.current?.(level));
         if (cancelled) return;
-        if (ok === false) { setGate('error'); gateRef.current = true; }      // frozen, offer Retry
+        // 'payment' is a DEAD END, not a retry: the contract fee could not be paid, and
+        // tapping Retry forever will not change that. It gets its own screen.
+        if (ok === 'payment') { setGate('payment'); gateRef.current = true; }
+        else if (ok === false) { setGate('error'); gateRef.current = true; }  // frozen, offer Retry
         else { setGate('ok'); gateRef.current = false; missionStartWall.current = performance.now(); }
       })();
     };
@@ -3934,6 +3937,19 @@ export function HuntScene({ onOpStart, onOpCleared, onOpFailed, startMission, re
               <div className="animate-spin" style={{ width: 34, height: 34, borderRadius: '50%', border: '3px solid rgba(255,255,255,.15)', borderTopColor: '#37d0e0' }} />
               <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: 3, marginTop: 20 }}>CONNECTING TO SERVER</div>
               <div style={{ fontSize: 12, color: '#7f8c99', letterSpacing: 1.5, marginTop: 8, maxWidth: 320, lineHeight: 1.5 }}>Securing your session so this run counts. The first connect can take up to a minute.</div>
+            </>
+          ) : gate === 'payment' ? (
+            <>
+              <div style={{ color: '#eab308' }}><Icon name="alert" size={44} /></div>
+              <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: 3, marginTop: 16 }}>NOT ENOUGH TALLY</div>
+              <div style={{ fontSize: 12, color: '#7f8c99', letterSpacing: 1.5, marginTop: 8, maxWidth: 360, lineHeight: 1.5 }}>
+                Re-running a contract you have already cleared costs {CONTRACT_FEE_TALLY} TALLY. Taking a NEW
+                contract is always free — the next one on the Ledger costs nothing.
+              </div>
+              <button onClick={onExit}
+                style={{ marginTop: 22, padding: '11px 30px', borderRadius: 10, border: '1.5px solid rgba(234,179,8,.6)', background: 'rgba(234,179,8,.12)', color: '#fbbf24', fontWeight: 800, letterSpacing: 3, fontSize: 14, cursor: 'pointer', pointerEvents: 'auto' }}>
+                BACK TO CAMP
+              </button>
             </>
           ) : (
             <>

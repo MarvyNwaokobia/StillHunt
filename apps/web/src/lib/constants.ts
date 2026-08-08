@@ -17,6 +17,12 @@ export const RANK_COLORS: Record<Rank, string> = {
   Apex: '#b9f2ff',
 }
 
+// What re-running an already-cleared contract costs. Mirrors CONTRACT_FEE_G in
+// apps/api handlers/battles.rs, which is the authority — the server debits it and
+// answers 402 when the balance will not cover it. A FIRST attempt at an op is always
+// free, so this never blocks progress; it only taxes replaying cleared ops for XP.
+export const CONTRACT_FEE_TALLY = 3
+
 // TALLY for REACHING a rank — FLAT: every rank-up pays the same, whichever rank it is.
 // Mirrors RANK_UP_REWARD_G in apps/api handlers/battles.rs, which is the authority: the
 // server settles this on-chain, once per (wallet, rank).

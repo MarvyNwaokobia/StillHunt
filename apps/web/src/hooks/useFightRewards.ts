@@ -3,6 +3,10 @@ import { usePlayerStore } from '@/stores/usePlayerStore'
 import { useAchievements } from '@/hooks/useAchievements'
 import type { Player } from '@/types'
 
+/** True = session open (or nothing to open); false = could not reach the server;
+ *  'payment' = the contract fee could not be paid, which no amount of retrying fixes. */
+export type StartResult = boolean | 'payment'
+
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080'
 
 export interface FightReward {
@@ -55,12 +59,19 @@ export function useFightRewards() {
   // signed-out player) and the fight is safe to begin, FALSE when the server can't be
   // reached. The readiness gate uses this: a FALSE keeps the player out of a run that
   // would silently not count (the old code played on regardless and dropped the reward).
+  // The entry fee the server charged for the current run, and why a start failed.
+  // A 402 is NOT a connectivity problem, and telling the player to "tap Retry to wake
+  // the server" when the real answer is "you cannot afford this replay" sends them
+  // round a loop that can never succeed.
+  const [gateBlock, setGateBlock] = useState<{ fee: number; balance: number } | null>(null)
+
   const startFight = useCallback(
-    async (level?: number): Promise<boolean> => {
+    async (level?: number): Promise<StartResult> => {
       // Signed out: no session to open, nothing to wait on — let the fight play (it just
       // earns nothing). Only a signed-in player is gated on a real token.
       if (!player) { sessionIdRef.current = null; return true }
       sessionIdRef.current = null
+      setGateBlock(null)
       try {
         // A cold (asleep) free-tier server can take ~30-60s to boot and answer, so allow
         // for that; past the window we fail and the gate offers Retry instead of hanging.
@@ -73,6 +84,13 @@ export function useFightRewards() {
           signal:  ctrl.signal,
         })
         clearTimeout(timer)
+        // 402: the contract fee could not be paid. Distinct from "offline" — there is
+        // nothing to retry until the player earns or claims more.
+        if (res.status === 402) {
+          const data = await res.json().catch(() => ({}))
+          setGateBlock({ fee: Number(data.fee ?? 0), balance: Number(data.balance ?? 0) })
+          return 'payment'
+        }
         if (res.ok) {
           const data = await res.json()
           sessionIdRef.current = data.session_id ?? null
@@ -204,5 +222,5 @@ export function useFightRewards() {
     [player, updatePlayer]
   )
 
-  return { startFight, submitResult, reportLoss, reward, pending, error }
+  return { startFight, submitResult, reportLoss, reward, pending, error, gateBlock }
 }

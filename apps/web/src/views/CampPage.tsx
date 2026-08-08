@@ -249,7 +249,9 @@ export default function CampPage() {
                   <span className="text-xs font-bold" style={{ color: zone.accent }}>
                     {FIRST_CLEAR_TALLY} TALLY
                   </span>
-                  <span className="text-[10px] text-slate-600 uppercase tracking-wider">on first clear</span>
+                  <span className="text-[10px] text-slate-600 uppercase tracking-wider">
+                    on first clear · no fee to sign
+                  </span>
                   <span className="ml-auto flex items-center gap-1.5 text-sm font-display font-black uppercase tracking-widest text-white group-hover:translate-x-0.5 transition-transform">
                     Sign <ChevronRight size={14} />
                   </span>

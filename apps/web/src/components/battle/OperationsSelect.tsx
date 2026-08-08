@@ -7,6 +7,7 @@ import { ChevronLeft, Lock, Skull, Check, ChevronRight, Infinity as InfinityIcon
 import type { Player } from '@/types'
 import { CAMPAIGN } from '@/engine/fps/campaign'
 import { zoneMeta } from '@/lib/ledger'
+import { CONTRACT_FEE_TALLY } from '@/lib/constants'
 import { tryFullscreen } from '@/lib/fullscreen'
 import { warmFightScene } from '@/lib/retryImport'
 import LoadoutModal from './LoadoutModal'
@@ -105,6 +106,13 @@ export default function OperationsSelect({ player, onBack }: Props) {
                           <p className="text-slate-500 text-xs mt-0.5">
                             {locked ? 'Clear the contract before it to open this one' : m.brief}
                           </p>
+                          {/* Replays cost; a first attempt never does. Say so HERE, on the
+                              slip they are about to sign, rather than at the 402. */}
+                          {isCleared && (
+                            <p className="text-[10px] mt-1 uppercase tracking-wider" style={{ color: '#eab308' }}>
+                              Re-run · {CONTRACT_FEE_TALLY} TALLY
+                            </p>
+                          )}
                         </div>
                         {!locked && (
                           <span className="text-[10px] font-black uppercase tracking-wider shrink-0 flex items-center gap-1"

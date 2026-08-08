@@ -195,6 +195,75 @@ fn next_rank(rank: &str) -> Option<&'static str> {
 /// only the size changed.
 const FIRST_CLEAR_BOUNTY_G: u64 = 10;
 
+/// What it costs to sign for a contract — the economy's recurring sink.
+///
+/// THE PROBLEM IT SOLVES. Every outflow the game had was ONE-OFF: guns and
+/// attachments are bought once and owned forever. So a player who has the gear they
+/// want has nothing left to spend on, TALLY piles up, and the marketplace stops
+/// mattering somewhere in week one. A currency needs somewhere to go every session,
+/// not once.
+///
+/// WHY REPLAYS AND NOT EVERY RUN. Charging every deploy would wall a new player out
+/// of the game: they start with a zero balance, and the first thing the campaign asks
+/// them to do would cost money they have no way to earn yet. So a FIRST attempt at an
+/// op is always free — the story can always be advanced, whatever your balance — and
+/// only re-running an op you have already cleared costs. That taxes exactly the
+/// behaviour the economy needs to drain (grinding cleared ops for XP toward the
+/// 200 TALLY rank-ups) and never blocks progress.
+///
+/// Flat, for the same reason FIRST_CLEAR_BOUNTY_G and RANK_UP_REWARD_G are flat: a
+/// curve here would have to be re-tuned every time the campaign's length changed, and
+/// the last two curves in this file both had to be cut for being unaffordable.
+const CONTRACT_FEE_G: u64 = 3;
+
+/// The fee for deploying to `level` when the player has cleared `pve_level`.
+/// Zero on a first attempt (including the next unlocked op), CONTRACT_FEE_G on a
+/// replay of anything already cleared.
+fn contract_fee(level: i32, pve_level: i32) -> u64 {
+    if level <= pve_level { CONTRACT_FEE_G } else { 0 }
+}
+
+#[cfg(test)]
+mod contract_fee_tests {
+    use super::*;
+
+    #[test]
+    fn a_first_attempt_is_always_free() {
+        // The op you have just unlocked, and every op beyond it.
+        assert_eq!(contract_fee(1, 0), 0);
+        assert_eq!(contract_fee(5, 4), 0);
+        assert_eq!(contract_fee(15, 14), 0);
+    }
+
+    #[test]
+    fn a_brand_new_player_can_always_afford_to_start() {
+        // The whole reason the fee is replay-only: a zero balance must never be able
+        // to lock someone out of op 1.
+        assert_eq!(contract_fee(1, 0), 0);
+    }
+
+    #[test]
+    fn replaying_a_cleared_op_costs() {
+        assert_eq!(contract_fee(1, 1), CONTRACT_FEE_G);
+        assert_eq!(contract_fee(1, 15), CONTRACT_FEE_G);
+        assert_eq!(contract_fee(14, 15), CONTRACT_FEE_G);
+    }
+
+    #[test]
+    fn the_fee_is_flat_across_the_whole_campaign() {
+        let fees: Vec<u64> = (1..=15).map(|l| contract_fee(l, 15)).collect();
+        assert!(fees.iter().all(|f| *f == CONTRACT_FEE_G), "{fees:?}");
+    }
+
+    #[test]
+    fn it_never_exceeds_what_a_first_clear_pays() {
+        // A fee above the bounty would mean grinding an op is strictly lossy, which
+        // turns a sink into a reason to stop playing.
+        assert!(CONTRACT_FEE_G < FIRST_CLEAR_BOUNTY_G);
+    }
+}
+
+
 /// The op RATE, ignoring whether earning is currently paused. Flat, so the level no
 /// longer changes the amount. Clamped to the on-chain per-payout ceiling, since a
 /// bigger single distributeReward call reverts.
@@ -791,6 +860,7 @@ pub async fn start_live_fight(
     let wallet = normalize_wallet(&body.wallet);
 
     // Sequential Campaign gate — the core of closing the "skip to op 15" exploit.
+    let mut fee: u64 = 0;
     if let Some(level) = body.level {
         let current: i32 = sqlx::query_scalar("SELECT pve_level FROM players WHERE wallet_address = $1")
             .bind(&wallet)
@@ -805,19 +875,48 @@ pub async fn start_live_fight(
                 "locked": true, "have_level": current, "requested": level,
             }));
         }
+        fee = contract_fee(level, current);
     }
 
     // Sweep expired tokens opportunistically — no background task needed.
     state.live_fight_sessions.retain(|_, s| s.created_at.elapsed() < Duration::from_secs(LIVE_FIGHT_TTL_SECS));
 
     let session_id = Uuid::new_v4();
+
+    // Charge the entry fee BEFORE the session exists. A session that opened and then
+    // failed to charge is a free run; a charge with no session is money taken for a
+    // fight the player never got. Ordering it this way leaves only the harmless case:
+    // a debit that succeeds while the insert cannot, which the idempotency key below
+    // refunds implicitly by letting the retry reuse it.
+    if fee > 0 {
+        match crate::services::earnings::spend(
+            &state.db,
+            &wallet,
+            "contract_fee",
+            rust_decimal::Decimal::from(fee),
+            &session_id.to_string(),
+        ).await {
+            Ok(_) => {}
+            Err(crate::services::earnings::SpendError::Insufficient(have)) => {
+                return HttpResponse::PaymentRequired().json(json!({
+                    "error": "Not enough TALLY to sign for this contract",
+                    "fee": fee, "balance": have,
+                }));
+            }
+            Err(_) => {
+                return HttpResponse::InternalServerError()
+                    .json(json!({"error": "Could not sign for that contract — nothing was charged"}));
+            }
+        }
+    }
+
     state.live_fight_sessions.insert(session_id, LiveFightSession {
         wallet,
         level: body.level,
         created_at: Instant::now(),
     });
 
-    HttpResponse::Ok().json(json!({ "session_id": session_id }))
+    HttpResponse::Ok().json(json!({ "session_id": session_id, "fee": fee }))
 }
 
 #[derive(Deserialize)]
