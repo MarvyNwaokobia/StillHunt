@@ -10,8 +10,13 @@
 import type { Mission } from '../fps/campaign';
 import type { CoverBox } from '../fps';
 
-export type PropKind = 'barrels' | 'crates' | 'sandbags' | 'debris';
-export interface PropSpec { kind: PropKind; x: number; z: number; rot: number; }
+/** Compound clutter, then the outdoor vocabulary the approach road uses. The two
+ *  sets are placed by different modules (setDressing / approachDressing) but share
+ *  one renderer, so there is a single place that knows what a prop looks like. */
+export type PropKind =
+  | 'barrels' | 'crates' | 'sandbags' | 'debris'
+  | 'post' | 'deadtree' | 'wreck' | 'ashpile' | 'milestone';
+export interface PropSpec { kind: PropKind; x: number; z: number; rot: number; scale?: number; }
 
 /** Clearance kept between a prop and any enemy / objective / the player start. */
 export const PROP_CLEAR = 2.4;

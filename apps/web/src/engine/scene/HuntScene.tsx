@@ -30,6 +30,7 @@ import {
   type GeneratedRoom,
 } from '../fps/endless';
 import { dressingFor, type PropSpec } from './setDressing';
+import { approachDressingFor } from './approachDressing';
 import { useSurvivalRearm, NeedArmError, type RearmAction } from '@/hooks/useSurvivalRearm';
 import { useGauntlet, type GauntletBoardRow, type SeasonInfo } from '@/hooks/useGauntlet';
 
@@ -151,7 +152,99 @@ function SkyDome({ top, bottom }: { top: string; bottom: string }) {
   );
 }
 
-function Prop({ kind, x, z, rot }: PropSpec) {
+function Prop({ kind, x, z, rot, scale = 1 }: PropSpec) {
+  // ── The road-in vocabulary (scene/approachDressing.ts) ──
+  // Outdoor, burned, and deliberately sparse. Like the compound props these are
+  // decoration only — never colliders — so nothing out here can block the walk.
+  if (kind === 'post') {
+    // A fence stake the fire went through. The verge line of these is what makes
+    // the corridor's movement clamp visible instead of an invisible wall.
+    return (
+      <group position={[x, 0, z]} rotation={[0, rot, (rot % 0.4) - 0.2]} scale={scale}>
+        <mesh position={[0, 0.62, 0]} castShadow receiveShadow>
+          <boxGeometry args={[0.13, 1.24, 0.13]} />
+          <meshStandardMaterial color="#3a3129" roughness={1} metalness={0} />
+        </mesh>
+        <mesh position={[0, 1.18, 0]} castShadow>
+          <boxGeometry args={[0.15, 0.16, 0.15]} />
+          <meshStandardMaterial color="#241e1a" roughness={1} metalness={0} />
+        </mesh>
+      </group>
+    );
+  }
+  if (kind === 'deadtree') {
+    return (
+      <group position={[x, 0, z]} rotation={[0, rot, 0]} scale={scale}>
+        <mesh position={[0, 1.5, 0]} castShadow receiveShadow>
+          <cylinderGeometry args={[0.12, 0.26, 3.0, 7]} />
+          <meshStandardMaterial color="#332b25" roughness={1} metalness={0} />
+        </mesh>
+        {/* Branches grow OUT of the trunk: the group sits on the trunk axis and is
+            rotated, then the limb is offset along its own length — so its inner end
+            always meets the trunk. Positioning the limb directly in world space
+            leaves it hanging in mid-air next to the tree, which is what it did. */}
+        {[[2.15, 0.7, 1.05], [2.5, 3.6, 0.85], [1.75, 2.2, 0.95]].map(([anchorY, yaw, len], i) => (
+          <group key={i} position={[0, anchorY, 0]} rotation={[0, yaw, 0.95 + i * 0.12]}>
+            <mesh position={[0, len / 2, 0]} castShadow>
+              <cylinderGeometry args={[0.04, 0.085, len, 5]} />
+              <meshStandardMaterial color="#2c251f" roughness={1} metalness={0} />
+            </mesh>
+          </group>
+        ))}
+      </group>
+    );
+  }
+  if (kind === 'wreck') {
+    // A burned-out vehicle, low enough that it never hides the compound ahead.
+    return (
+      <group position={[x, 0, z]} rotation={[0, rot, 0]} scale={scale}>
+        <mesh position={[0, 0.5, 0]} castShadow receiveShadow>
+          <boxGeometry args={[1.9, 0.7, 1.0]} />
+          <meshStandardMaterial color="#3d3a38" roughness={0.85} metalness={0.35} />
+        </mesh>
+        <mesh position={[-0.35, 1.0, 0]} castShadow receiveShadow>
+          <boxGeometry args={[0.9, 0.55, 0.92]} />
+          <meshStandardMaterial color="#332f2d" roughness={0.9} metalness={0.3} />
+        </mesh>
+        {[[-0.62, -0.5], [0.66, -0.5], [-0.62, 0.5], [0.66, 0.5]].map(([wx, wz], i) => (
+          <mesh key={i} position={[wx, 0.2, wz]} rotation={[0, 0, Math.PI / 2]} castShadow>
+            <cylinderGeometry args={[0.2, 0.2, 0.16, 9]} />
+            <meshStandardMaterial color="#1e1c1b" roughness={1} metalness={0.05} />
+          </mesh>
+        ))}
+      </group>
+    );
+  }
+  if (kind === 'ashpile') {
+    return (
+      <group position={[x, 0, z]} rotation={[0, rot, 0]} scale={scale}>
+        <mesh position={[0, 0.11, 0]} receiveShadow>
+          <coneGeometry args={[0.75, 0.34, 9]} />
+          <meshStandardMaterial color="#5b5550" roughness={1} metalness={0} />
+        </mesh>
+        <mesh position={[0.5, 0.07, 0.3]} receiveShadow>
+          <coneGeometry args={[0.42, 0.2, 8]} />
+          <meshStandardMaterial color="#544e49" roughness={1} metalness={0} />
+        </mesh>
+      </group>
+    );
+  }
+  if (kind === 'milestone') {
+    // The stone you start beside. Gives the opening shot a foreground and points
+    // the way before the player has moved.
+    return (
+      <group position={[x, 0, z]} rotation={[0, rot, 0]} scale={scale}>
+        <mesh position={[0, 0.42, 0]} castShadow receiveShadow>
+          <boxGeometry args={[0.34, 0.84, 0.22]} />
+          <meshStandardMaterial color="#6e6961" roughness={1} metalness={0} />
+        </mesh>
+        <mesh position={[0, 0.86, 0]} castShadow>
+          <boxGeometry args={[0.38, 0.1, 0.26]} />
+          <meshStandardMaterial color="#7a746b" roughness={1} metalness={0} />
+        </mesh>
+      </group>
+    );
+  }
   if (kind === 'barrels') {
     const cols = ['#5c4a34', '#4a5240', '#6a4838'];
     return (
@@ -206,7 +299,11 @@ function Prop({ kind, x, z, rot }: PropSpec) {
 
 function SetDressing({ mission }: { mission: Mission }) {
   const props = useMemo(() => dressingFor(mission), [mission]);
-  return <>{props.map((p, i) => <Prop key={i} {...p} />)}</>;
+  // The compound's clutter and the road in are placed by different rules — one hugs
+  // walls, the other lines a road that has none — so they are generated separately
+  // and drawn together.
+  const road = useMemo(() => approachDressingFor(mission), [mission]);
+  return <>{[...props, ...road].map((p, i) => <Prop key={i} {...p} />)}</>;
 }
 
 function angleDiff(a: number, b: number): number {
