@@ -60,6 +60,9 @@ function FightInner() {
   // which reads stale on client-side navigation — that made a clicked op boot op 1).
   const searchParams = useSearchParams();
   const opParam = searchParams.get('op');
+  // /fight?contract=<id> plays a STANDING CONTRACT — a compound generated from the id
+  // instead of one of the fifteen authored ops. Takes precedence over `op`.
+  const contractId = searchParams.get('contract') || undefined;
   const startMission =
     opParam !== null && opParam !== '' && Number.isFinite(Number(opParam)) && Number(opParam) >= 0
       ? Number(opParam)
@@ -105,6 +108,7 @@ function FightInner() {
         onOpCleared={onOpCleared}
         onOpFailed={onOpFailed}
         startMission={startMission}
+        contractId={contractId}
         resumeLevel={pveLevel}
         walletAddress={walletAddress}
         accountRank={accountRank}

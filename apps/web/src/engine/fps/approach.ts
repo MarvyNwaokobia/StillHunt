@@ -80,17 +80,21 @@ export function approachSpawn(mission: Pick<Mission, 'start' | 'approach'>): [nu
  * The player's movement clamp, widened along +Z to cover the corridor. X and the far
  * (-Z) side are untouched: the compound is unchanged and only the walk-in is new.
  */
-export function approachBounds(mission: Pick<Mission, 'start' | 'approach'>): {
-  minX: number; maxX: number; minZ: number; maxZ: number;
-} {
+export function approachBounds(
+  mission: Pick<Mission, 'start' | 'approach' | 'bounds'>,
+): { minX: number; maxX: number; minZ: number; maxZ: number } {
+  // A mission that states its own extent wins: a generated compound is as deep as
+  // its room chain, and the authored arena's clamp would stop the player at the
+  // second doorway.
+  const base = mission.bounds ?? ARENA_BOUNDS;
   const len = approachLength(mission);
-  if (len === 0) return { ...ARENA_BOUNDS };
+  if (len === 0) return { ...base };
   const spawnZ = approachSpawn(mission)[1];
   return {
-    ...ARENA_BOUNDS,
+    ...base,
     // Always leave the spawn inside the box, even if a mission starts unusually far
     // back or overrides the length.
-    maxZ: Math.max(ARENA_BOUNDS.maxZ, spawnZ + SPAWN_MARGIN),
+    maxZ: Math.max(base.maxZ, spawnZ + SPAWN_MARGIN),
   };
 }
 
@@ -100,17 +104,24 @@ export function approachBounds(mission: Pick<Mission, 'start' | 'approach'>): {
  * without moving the centre would extend it equally into -Z, which is off the back
  * of the level where nothing should be walkable.
  */
-export function approachFloor(mission: Pick<Mission, 'start' | 'approach'>): {
-  width: number; depth: number; centerZ: number;
-} {
-  const base = { width: ARENA_FLOOR.width, depth: ARENA_FLOOR.depth, centerZ: 0 };
+export function approachFloor(
+  mission: Pick<Mission, 'start' | 'approach' | 'bounds'>,
+): { width: number; depth: number; centerZ: number } {
+  const width = mission.bounds
+    ? Math.max(ARENA_FLOOR.width, (mission.bounds.maxX - mission.bounds.minX) + 6)
+    : ARENA_FLOOR.width;
+  // The back edge follows the mission's own depth, so a generated chain always has
+  // ground under its deepest room.
+  const far = mission.bounds ? mission.bounds.minZ - 3 : -ARENA_FLOOR.depth / 2;
   const len = approachLength(mission);
-  if (len === 0) return base;
+  if (len === 0) {
+    const depth = mission.bounds ? (mission.bounds.maxZ + SPAWN_MARGIN) - far : ARENA_FLOOR.depth;
+    return { width, depth, centerZ: mission.bounds ? far + depth / 2 : 0 };
+  }
 
-  const far = -ARENA_FLOOR.depth / 2;                       // unchanged back edge
   const near = approachBounds(mission).maxZ + SPAWN_MARGIN;  // new front edge
   const depth = near - far;
-  return { width: ARENA_FLOOR.width, depth, centerZ: (near + far) / 2 };
+  return { width, depth, centerZ: (near + far) / 2 };
 }
 
 /**
@@ -154,15 +165,20 @@ export const GATE_W = 3.2;
  * Returns the walls unchanged if no rear wall is found, so a layout that does not fit
  * the pattern degrades to a compound you cannot enter rather than to a crash.
  */
-export function openRearGate(walls: CoverBox[], gap = GATE_W): CoverBox[] {
-  if (walls.length === 0) return walls;
-
+export function findRearWall(walls: CoverBox[]): CoverBox | undefined {
   // The rear wall runs across X (wide and thin) and sits furthest along +Z.
   let rear: CoverBox | undefined;
   for (const w of walls) {
     if (w.w <= w.d) continue;             // not an X-spanning wall
     if (!rear || w.z > rear.z) rear = w;
   }
+  return rear;
+}
+
+export function openRearGate(walls: CoverBox[], gap = GATE_W): CoverBox[] {
+  if (walls.length === 0) return walls;
+
+  const rear = findRearWall(walls);
   if (!rear || rear.w <= gap) return walls;
 
   const segW = (rear.w - gap) / 2;

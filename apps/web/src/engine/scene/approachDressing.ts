@@ -29,7 +29,7 @@
 
 import type { Mission } from '../fps/campaign';
 import type { PropSpec } from './setDressing';
-import { approachSpawn, approachBounds, hasApproach } from '../fps/approach';
+import { approachSpawn, approachBounds, hasApproach, findRearWall } from '../fps/approach';
 
 /** Half-width of the walkable road kept free of props. */
 export const ROAD_HALF_W = 2.6;
@@ -66,8 +66,14 @@ const ROADSIDE: PropSpec['kind'][] = [
  */
 export function corridorRange(mission: Mission): { near: number; far: number } {
   const spawnZ = approachSpawn(mission)[1];
-  // `near` starts a little past the rear wall so nothing crowds the gate mouth.
-  return { near: 19.5, far: Math.max(19.5, spawnZ + 1) };
+  // Derived from the compound's OWN rear wall, not a constant. A fixed z was tuned
+  // for the authored layouts (whose gate sits at 18.2) and collapsed the range to
+  // nothing on a generated compound, whose gate is wherever its chain starts — so
+  // those roads came out bare.
+  const rear = findRearWall(mission.walls);
+  const gateZ = rear ? rear.z + rear.d / 2 : 0;
+  const near = gateZ + 1.3;  // clear of the gate mouth
+  return { near, far: Math.max(near, spawnZ + 1) };
 }
 
 export function approachDressingFor(mission: Mission): PropSpec[] {

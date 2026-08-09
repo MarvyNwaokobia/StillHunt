@@ -4,6 +4,7 @@ import {
 } from '../approachDressing';
 import { approachSpawn, approachBounds, approachFloor } from '../../fps/approach';
 import { CAMPAIGN } from '../../fps/campaign';
+import { generateContract } from '../../fps/contracts';
 
 const op = CAMPAIGN[0];
 
@@ -114,6 +115,27 @@ describe('the roadside', () => {
       for (let j = i + 1; j < all.length; j++) {
         expect(Math.hypot(all[i].x - all[j].x, all[i].z - all[j].z)).toBeGreaterThan(1.0);
       }
+    }
+  });
+});
+
+describe('a generated compound gets a road too', () => {
+  // corridorRange used to hardcode the authored layouts' gate z, which collapsed the
+  // range to nothing on a generated compound and left its road bare.
+  const gen = generateContract({ id: 'alpha' });
+
+  it('dresses the corridor rather than placing a lone milestone', () => {
+    const props = approachDressingFor(gen);
+    expect(props.filter((p) => p.kind === 'post').length).toBeGreaterThan(4);
+    expect(props.length).toBeGreaterThan(8);
+  });
+
+  it('runs the road between the compound gate and the spawn', () => {
+    const { near, far } = corridorRange(gen);
+    expect(far).toBeGreaterThan(near + 8);
+    for (const p of approachDressingFor(gen)) {
+      expect(p.z).toBeGreaterThan(near - 1.5);
+      expect(p.z).toBeLessThan(far + 2);
     }
   });
 });

@@ -42,6 +42,13 @@ export interface Mission {
   /** The walk in. Present on doorkicker ops; absent on survival/endless/seasonal,
    *  which have no compound to approach. See fps/approach.ts. */
   approach?: ApproachSpec;
+  /** Where the player may walk, when this mission does not fit the authored arena.
+   *  The hand-built compounds all sit inside one tuned box (approach.ARENA_BOUNDS),
+   *  but a GENERATED compound is as deep as its room chain — three rooms run past
+   *  z = -48 — and the arena clamp would stop the player at the second doorway. A
+   *  generated mission states its own extent; authored ones leave this unset and
+   *  keep the tuned box. */
+  bounds?: { minX: number; maxX: number; minZ: number; maxZ: number };
   walls: CoverBox[];
   cover: CoverBox[];
   enemies: EnemySpec[];

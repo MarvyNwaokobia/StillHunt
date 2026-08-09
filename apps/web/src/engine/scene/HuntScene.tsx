@@ -31,6 +31,7 @@ import {
 } from '../fps/endless';
 import { dressingFor, type PropSpec } from './setDressing';
 import { approachDressingFor } from './approachDressing';
+import { generateContract } from '../fps/contracts';
 import { useSurvivalRearm, NeedArmError, type RearmAction } from '@/hooks/useSurvivalRearm';
 import { useGauntlet, type GauntletBoardRow, type SeasonInfo } from '@/hooks/useGauntlet';
 
@@ -3092,7 +3093,11 @@ function GauntletRunController({ walletAddress }: { walletAddress: string }) {
   return null;
 }
 
-export function HuntScene({ onOpStart, onOpCleared, onOpFailed, startMission, resumeLevel, walletAddress, accountRank, accountXp, equippedGun, equippedAmmo, equippedMods, fieldKit, onExit, endless, seasonal }: {
+export function HuntScene({ onOpStart, onOpCleared, onOpFailed, startMission, resumeLevel, walletAddress, accountRank, accountXp, equippedGun, equippedAmmo, equippedMods, fieldKit, onExit, endless, seasonal, contractId }: {
+  /** Play a STANDING CONTRACT: a compound generated from this id rather than one of
+   *  the fifteen authored ones. It resolves to an ordinary Mission (fps/contracts.ts),
+   *  so nothing below here branches on it. */
+  contractId?: string;
   /** Boot straight into an ENDLESS run on the generated room chain, bypassing the
    *  campaign entirely. Present for Campaign Endless and the Seasonal Campaign;
    *  absent everywhere else. */
@@ -3245,7 +3250,15 @@ export function HuntScene({ onOpStart, onOpCleared, onOpFailed, startMission, re
     return () => { cancelled = true; };
   }, [missionIndex, runNonce, mode]);
   const retryConnect = () => gateConnectRef.current?.();
-  const mission = mode === 'endless' ? (seasonal ? SEASONAL_MISSION : ENDLESS_MISSION)
+  // A generated compound, memoised on its id: rebuilding it per render would hand
+  // every downstream memo (colliders, walls, dressing, the sim itself) a new object
+  // each frame and rebuild the whole level continuously.
+  const generated = useMemo(
+    () => (contractId ? generateContract({ id: contractId }) : null),
+    [contractId],
+  );
+  const mission = generated ? generated
+    : mode === 'endless' ? (seasonal ? SEASONAL_MISSION : ENDLESS_MISSION)
     : mode === 'gauntlet' ? GAUNTLET_MISSION
     : mode === 'survival' ? SURVIVAL_MISSION
     : CAMPAIGN[Math.min(missionIndex, CAMPAIGN.length - 1)];
